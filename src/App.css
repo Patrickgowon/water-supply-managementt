@@ -1,0 +1,37 @@
+/* Leaflet map container styles */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.5rem;
+}
+
+/* Custom marker animations */
+.custom-marker {
+  background: transparent;
+  border: none;
+}
+
+/* Popup custom styles */
+.leaflet-popup-content {
+  margin: 0;
+  padding: 0;
+}
+
+.leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+/* Fix z-index issues */
+.leaflet-pane {
+  z-index: 1;
+}
+
+.leaflet-control {
+  z-index: 2;
+}
+
+.leaflet-popup-pane {
+  z-index: 3;
+}

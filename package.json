@@ -1,0 +1,53 @@
+{
+  "name": "AY Creative Technologies",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "postinstall": "flowbite-react patch"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.7",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@types/leaflet": "^1.9.21",
+    "@types/react": "^19.1.3",
+    "@types/react-dom": "^19.1.3",
+    "@vitejs/plugin-react": "^4.4.1",
+    "tailwindcss": "^4.1.7",
+    "tw-animate-css": "^1.2.9",
+    "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@heroicons/react": "^2.2.0",
+    "@material-tailwind/react": "^2.1.10",
+    "@mui/material": "^7.1.0",
+    "@mui/x-data-grid": "^8.4.0",
+    "@radix-ui/react-slot": "^1.2.2",
+    "@react-google-maps/api": "^2.20.8",
+    "axios": "^1.9.0",
+    "chart.js": "^4.5.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "daisyui": "^5.0.35",
+    "flowbite-react": "^0.11.7",
+    "framer-motion": "^12.10.5",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.562.0",
+    "react-chartjs-2": "^5.3.1",
+    "react-icons": "^5.5.0",
+    "react-leaflet": "^5.0.0",
+    "react-pro-sidebar": "^1.1.0",
+    "react-router-dom": "^7.6.0",
+    "react-switch": "^7.1.0",
+    "react-toastify": "^11.0.5",
+    "recharts": "^2.15.3",
+    "sweetalert2": "^11.21.2",
+    "tailwind-merge": "^3.2.0",
+    "tailwind-scrollbar": "^4.0.2"
+  }
+}
