@@ -1,186 +1,194 @@
 // src/pages/Login.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  LogIn,
-  Eye,
-  EyeOff,
-  Mail,
-  Lock,
-  AlertCircle,
-  CheckCircle,
-  Loader2,
-  Shield,
-  ArrowRight,
-  Droplets,
-  XCircle
+  LogIn, Eye, EyeOff, Mail, Lock, AlertCircle,
+  CheckCircle, Loader2, Shield, ArrowRight, Droplets, XCircle
 } from 'lucide-react';
 import axios from 'axios';
 
-// Simple toast notification system
+// ─── API base URL ─────────────────────────────────────────────────────────────
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const useToast = () => {
   const [toast, setToast] = useState({ show: false, type: '', message: '' });
-
   const showToast = (type, message) => {
     setToast({ show: true, type, message });
     setTimeout(() => setToast({ show: false, type: '', message: '' }), 3000);
   };
-
   const success = (message) => showToast('success', message);
-  const error = (message) => showToast('error', message);
-  const info = (message) => showToast('info', message);
-
+  const error   = (message) => showToast('error',   message);
+  const info    = (message) => showToast('info',     message);
   return { toast, success, error, info };
 };
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const { toast, success, error } = useToast();
-  
+
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginStatus, setLoginStatus] = useState({ type: '', message: '' });
   const [passwordStrength, setPasswordStrength] = useState({
-    score: 0,
-    hasLength: false,
-    hasNumber: false,
-    hasUpper: false,
-    hasLower: false,
-    hasSpecial: false
+    score: 0, hasLength: false, hasNumber: false,
+    hasUpper: false, hasLower: false, hasSpecial: false
   });
 
+  // Check if already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    
+    console.log('Login page - Token exists:', !!token);
+    console.log('Login page - User exists:', !!user);
+    
+    if (token && user) {
+      try {
+        const userData = JSON.parse(user);
+        console.log('Already logged in as:', userData.email);
+        
+        // Redirect to appropriate dashboard
+        if (userData.role === 'admin') {
+          navigate('/admin-dashboard', { replace: true });
+        } else {
+          navigate('/student-dashboard', { replace: true });
+        }
+      } catch (err) {
+        console.error('Error parsing user data:', err);
+        // Clear invalid data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    }
+  }, [navigate]);
+
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-
-    // Check password strength when password field changes
-    if (field === 'password') {
-      checkPasswordStrength(value);
-    }
-
-    // Clear error for this field
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === 'password') checkPasswordStrength(value);
     if (errors[field]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
+      setErrors(prev => { const e = { ...prev }; delete e[field]; return e; });
     }
-
-    // Clear login status when user starts typing
-    if (loginStatus.message) {
-      setLoginStatus({ type: '', message: '' });
-    }
+    if (loginStatus.message) setLoginStatus({ type: '', message: '' });
   };
 
   const checkPasswordStrength = (password) => {
     setPasswordStrength({
       score: password.length,
-      hasLength: password.length >= 8,
-      hasNumber: /\d/.test(password),
-      hasUpper: /[A-Z]/.test(password),
-      hasLower: /[a-z]/.test(password),
+      hasLength:  password.length >= 8,
+      hasNumber:  /\d/.test(password),
+      hasUpper:   /[A-Z]/.test(password),
+      hasLower:   /[a-z]/.test(password),
       hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password)
     });
   };
 
   const getPasswordStrengthScore = () => {
     const { hasLength, hasNumber, hasUpper, hasLower, hasSpecial } = passwordStrength;
-    const requirements = [hasLength, hasNumber, hasUpper, hasLower, hasSpecial];
-    return requirements.filter(Boolean).length;
+    return [hasLength, hasNumber, hasUpper, hasLower, hasSpecial].filter(Boolean).length;
   };
 
   const getPasswordStrengthText = () => {
     const score = getPasswordStrengthScore();
-    if (score === 0) return { text: 'Very Weak', color: 'text-red-600', bg: 'bg-red-100' };
-    if (score <= 2) return { text: 'Weak', color: 'text-orange-600', bg: 'bg-orange-100' };
-    if (score <= 3) return { text: 'Fair', color: 'text-yellow-600', bg: 'bg-yellow-100' };
-    if (score <= 4) return { text: 'Good', color: 'text-blue-600', bg: 'bg-blue-100' };
-    return { text: 'Strong', color: 'text-green-600', bg: 'bg-green-100' };
+    if (score === 0) return { text: 'Very Weak', color: 'text-red-600' };
+    if (score <= 2)  return { text: 'Weak',      color: 'text-orange-600' };
+    if (score <= 3)  return { text: 'Fair',       color: 'text-yellow-600' };
+    if (score <= 4)  return { text: 'Good',       color: 'text-blue-600' };
+    return                  { text: 'Strong',     color: 'text-green-600' };
   };
 
   const validateForm = () => {
     const newErrors = {};
-
     if (!formData.email) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
-
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
-    } else if (getPasswordStrengthScore() < 3) {
-      newErrors.password = 'Password is too weak. Please use a stronger password.';
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
     setLoginStatus({ type: '', message: '' });
 
     try {
-      // For demo purposes - replace with actual API endpoint
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('Attempting login with:', formData.email);
       
-      // Mock user data based on login
-      const mockUserData = {
-        id: 'STU' + Date.now(),
-        firstName: 'John',
-        lastName: 'Doe',
-        name: 'John Doe',
-        email: formData.email,
-        role: 'student',
-        matricNumber: 'PLASU/2021/CSC/001',
-        department: 'Computer Science',
-        level: '300',
-        hall: 'Daniel Hall',
-        roomNumber: 'B202',
-        phone: '08031234567'
-      };
-      
-      // Store user data
-      localStorage.setItem('user', JSON.stringify(mockUserData));
-      
+      // ── Real API call to Node.js backend ────────────────────────────────
+      const response = await axios.post(
+        `${API_URL}/auth/login`,
+        { email: formData.email, password: formData.password },
+        { 
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('Login response:', response.data);
+
+      const { token, data: user } = response.data;
+
+      if (!token) {
+        throw new Error('No token received from server');
+      }
+
+      if (!user) {
+        throw new Error('No user data received from server');
+      }
+
+      // Save token + user info for use across the app
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('isLoggedIn', 'true');
+
+      console.log('Login successful, user role:', user.role);
+      console.log('Token stored:', !!localStorage.getItem('token'));
+
       setLoginStatus({
         type: 'success',
-        message: 'Login successful! Redirecting to dashboard...'
+        message: response.data.message || 'Login successful! Redirecting to dashboard...'
       });
-
       success('Login successful! Redirecting to dashboard...');
 
-      // Redirect to dashboard after 2 seconds
+      // Redirect based on role
       setTimeout(() => {
-        navigate('/student-dashboard');
-      }, 2000);
+        if (user.role === 'admin') {
+          console.log('Redirecting to admin dashboard');
+          navigate('/admin-dashboard', { replace: true });
+        } else {
+          console.log('Redirecting to student dashboard');
+          navigate('/student-dashboard', { replace: true });
+        }
+      }, 1500);
 
     } catch (err) {
-      console.error('❌ Login error:', err);
+      console.error('Login error details:', err);
+      console.error('Error response:', err.response?.data);
+      console.error('Error status:', err.response?.status);
       
-      let errorMessage = 'Login failed. Invalid email or password.';
+      let errorMessage = 'Login failed. Please check your credentials.';
       
-      setLoginStatus({
-        type: 'error',
-        message: errorMessage
-      });
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Invalid email or password. Please try again.';
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (err.code === 'ECONNABORTED' || !err.response) {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      setLoginStatus({ type: 'error', message: errorMessage });
       error(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -188,23 +196,19 @@ const LoginPage = () => {
   };
 
   const strengthScore = getPasswordStrengthScore();
-  const strengthText = getPasswordStrengthText();
+  const strengthText  = getPasswordStrengthText();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 py-12 px-4">
       {/* Toast Notification */}
       {toast.show && (
         <div className={`fixed top-4 right-4 z-50 animate-slideDown ${
-          toast.type === 'success' ? 'bg-green-600' : 
-          toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+          toast.type === 'success' ? 'bg-green-600' :
+          toast.type === 'error'   ? 'bg-red-600'   : 'bg-blue-600'
         } text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2`}>
-          {toast.type === 'success' ? (
-            <CheckCircle className="h-5 w-5" />
-          ) : toast.type === 'error' ? (
-            <AlertCircle className="h-5 w-5" />
-          ) : (
-            <AlertCircle className="h-5 w-5" />
-          )}
+          {toast.type === 'success'
+            ? <CheckCircle className="h-5 w-5" />
+            : <AlertCircle className="h-5 w-5" />}
           <span className="text-sm">{toast.message}</span>
         </div>
       )}
@@ -217,30 +221,20 @@ const LoginPage = () => {
               <Droplets className="h-7 w-7 text-white" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome to HydroTrack
-          </h1>
-          <p className="text-gray-600">
-            PLASU Water Supply Management System
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to HydroTrack</h1>
+          <p className="text-gray-600">PLASU Water Supply Management System</p>
         </div>
 
         {/* Login Status Message */}
         {loginStatus.message && (
           <div className={`mb-6 p-4 rounded-xl border ${
-            loginStatus.type === 'success' 
-              ? 'bg-green-50 border-green-200'
-              : 'bg-red-50 border-red-200'
+            loginStatus.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
           }`}>
             <div className="flex items-center gap-3">
-              {loginStatus.type === 'success' ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <AlertCircle className="h-5 w-5 text-red-600" />
-              )}
-              <span className={`text-sm ${
-                loginStatus.type === 'success' ? 'text-green-800' : 'text-red-800'
-              }`}>
+              {loginStatus.type === 'success'
+                ? <CheckCircle className="h-5 w-5 text-green-600" />
+                : <AlertCircle className="h-5 w-5 text-red-600" />}
+              <span className={`text-sm ${loginStatus.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
                 {loginStatus.message}
               </span>
             </div>
@@ -249,24 +243,19 @@ const LoginPage = () => {
 
         {/* Login Form */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          {/* Form Header */}
           <div className="px-8 py-6 bg-gradient-to-r from-green-600 to-green-700">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <LogIn className="h-5 w-5" />
-              Student Login
+              <LogIn className="h-5 w-5" />Student Login
             </h2>
             <p className="text-green-100 text-sm mt-1">
               Enter your credentials to access the water supply system
             </p>
           </div>
 
-          {/* Form Content */}
           <form onSubmit={handleSubmit} className="p-8 space-y-6">
-            {/* Email Field - Now accepts any email */}
+            {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
@@ -281,17 +270,14 @@ const LoginPage = () => {
               </div>
               {errors.email && (
                 <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle className="h-4 w-4" />
-                  {errors.email}
+                  <AlertCircle className="h-4 w-4" />{errors.email}
                 </p>
               )}
             </div>
 
-            {/* Password Field - Strong password required */}
+            {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
@@ -311,72 +297,40 @@ const LoginPage = () => {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              
+
               {/* Password Strength Indicator */}
               {formData.password && (
                 <div className="mt-3 space-y-2">
-                  {/* Strength Meter */}
                   <div className="flex gap-1 h-1.5">
                     {[1, 2, 3, 4, 5].map((i) => (
-                      <div
-                        key={i}
-                        className={`flex-1 rounded-full transition-all ${
-                          i <= strengthScore 
-                            ? i <= 2 ? 'bg-red-500' 
-                            : i <= 3 ? 'bg-orange-500'
-                            : i <= 4 ? 'bg-yellow-500'
-                            : 'bg-green-500'
-                            : 'bg-gray-200'
-                        }`}
-                      />
+                      <div key={i} className={`flex-1 rounded-full transition-all ${
+                        i <= strengthScore
+                          ? i <= 2 ? 'bg-red-500' : i <= 3 ? 'bg-orange-500' : i <= 4 ? 'bg-yellow-500' : 'bg-green-500'
+                          : 'bg-gray-200'
+                      }`} />
                     ))}
                   </div>
-
-                  {/* Strength Text */}
                   <p className={`text-xs font-medium ${strengthText.color}`}>
                     Password Strength: {strengthText.text}
                   </p>
-
-                  {/* Password Requirements Checklist */}
                   <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div className="flex items-center gap-1">
-                      {passwordStrength.hasLength ? (
-                        <CheckCircle className="h-3 w-3 text-green-600" />
-                      ) : (
-                        <XCircle className="h-3 w-3 text-gray-400" />
-                      )}
-                      <span className="text-xs text-gray-600">8+ characters</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {passwordStrength.hasNumber ? (
-                        <CheckCircle className="h-3 w-3 text-green-600" />
-                      ) : (
-                        <XCircle className="h-3 w-3 text-gray-400" />
-                      )}
-                      <span className="text-xs text-gray-600">Number</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {passwordStrength.hasUpper ? (
-                        <CheckCircle className="h-3 w-3 text-green-600" />
-                      ) : (
-                        <XCircle className="h-3 w-3 text-gray-400" />
-                      )}
-                      <span className="text-xs text-gray-600">Uppercase</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {passwordStrength.hasLower ? (
-                        <CheckCircle className="h-3 w-3 text-green-600" />
-                      ) : (
-                        <XCircle className="h-3 w-3 text-gray-400" />
-                      )}
-                      <span className="text-xs text-gray-600">Lowercase</span>
-                    </div>
+                    {[
+                      { key: 'hasLength',  label: '8+ characters' },
+                      { key: 'hasNumber',  label: 'Number' },
+                      { key: 'hasUpper',   label: 'Uppercase' },
+                      { key: 'hasLower',   label: 'Lowercase' },
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center gap-1">
+                        {passwordStrength[key]
+                          ? <CheckCircle className="h-3 w-3 text-green-600" />
+                          : <XCircle    className="h-3 w-3 text-gray-400" />}
+                        <span className="text-xs text-gray-600">{label}</span>
+                      </div>
+                    ))}
                     <div className="flex items-center gap-1 col-span-2">
-                      {passwordStrength.hasSpecial ? (
-                        <CheckCircle className="h-3 w-3 text-green-600" />
-                      ) : (
-                        <XCircle className="h-3 w-3 text-gray-400" />
-                      )}
+                      {passwordStrength.hasSpecial
+                        ? <CheckCircle className="h-3 w-3 text-green-600" />
+                        : <XCircle    className="h-3 w-3 text-gray-400" />}
                       <span className="text-xs text-gray-600">Special character (!@#$%^&*)</span>
                     </div>
                   </div>
@@ -385,84 +339,65 @@ const LoginPage = () => {
 
               {errors.password && (
                 <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle className="h-4 w-4" />
-                  {errors.password}
+                  <AlertCircle className="h-4 w-4" />{errors.password}
                 </p>
               )}
             </div>
 
-            {/* Forgot Password Link */}
+            {/* Forgot Password */}
             <div className="flex justify-end">
-              <a href="#" className="text-sm text-green-600 hover:text-green-700 font-medium">
+              <Link to="/forgot-password" className="text-sm text-green-600 hover:text-green-700 font-medium">
                 Forgot password?
-              </a>
+              </Link>
             </div>
 
-            {/* Submit Button */}
+            {/* Submit */}
             <button
               type="submit"
               disabled={isSubmitting}
               className="w-full flex items-center justify-center px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {isSubmitting ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Signing in...
-                </>
+                <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Signing in...</>
               ) : (
-                <>
-                  <LogIn className="h-5 w-5 mr-2" />
-                  Sign In
-                </>
+                <><LogIn className="h-5 w-5 mr-2" />Sign In</>
               )}
             </button>
 
-            {/* Registration Link */}
+            {/* Register link */}
             <div className="text-center pt-4 border-t border-gray-200">
               <p className="text-gray-600">
                 Don't have an account?{' '}
                 <Link to="/register" className="text-green-600 hover:text-green-700 font-medium inline-flex items-center gap-1">
-                  Register here
-                  <ArrowRight className="h-4 w-4" />
+                  Register here <ArrowRight className="h-4 w-4" />
                 </Link>
               </p>
             </div>
           </form>
         </div>
 
-        {/* Demo Credentials */}
-        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h4 className="text-xs font-semibold text-blue-800 mb-2">Demo Credentials</h4>
-          <div className="space-y-1">
-            <p className="text-xs text-blue-600">Email: student@example.com</p>
-            <p className="text-xs text-blue-600">Password: Password123!</p>
+        {/* Security badge */}
+        <div className="mt-4 p-4 bg-purple-50 rounded-xl border border-purple-100">
+          <div className="flex items-center gap-2 mb-1">
+            <Shield className="h-4 w-4 text-purple-600" />
+            <span className="text-xs font-medium text-purple-900">Secure Login</span>
           </div>
-          <p className="text-xs text-blue-500 mt-2">
-            * Password must be 8+ chars with uppercase, lowercase, number & special character
+          <p className="text-xs text-purple-700">
+            Your credentials are encrypted and never stored in plain text.
           </p>
         </div>
 
-        {/* Footer */}
         <p className="mt-8 text-center text-sm text-gray-500">
           © {new Date().getFullYear()} PLASU HydroTrack System. All rights reserved.
         </p>
       </div>
 
-      {/* Add animation styles */}
       <style jsx>{`
         @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(-10px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
-        .animate-slideDown {
-          animation: slideDown 0.3s ease-out;
-        }
+        .animate-slideDown { animation: slideDown 0.3s ease-out; }
       `}</style>
     </div>
   );

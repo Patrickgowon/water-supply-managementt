@@ -1,8 +1,7 @@
 // src/pages/DriverDashboard.jsx
-
-//  ✅ Shift timer
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import {
   FaTruck, FaRoute, FaMapMarkedAlt, FaBell, FaClock,
   FaCheckCircle, FaCalendarAlt, FaMapMarkerAlt, FaPhone,
@@ -11,18 +10,21 @@ import {
   FaStar, FaChartBar, FaMoneyBillWave, FaExclamationTriangle,
   FaCamera, FaSignature, FaToggleOn, FaToggleOff,
   FaGasPump, FaThumbsUp, FaHistory, FaChevronRight,
-  FaBolt, FaShieldAlt, FaTools, FaHeadset, FaKey,
+  FaBolt, FaShieldAlt, FaTools, FaHeadset, FaKey, FaSpinner,
+  FaTrashAlt
 } from 'react-icons/fa';
 import { MdOutlineWaterDrop, MdSpeed, MdDirections, MdWarning } from 'react-icons/md';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl:       'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl:     'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
 // ─── TOAST ─────────────────────────────────────────────────────────────────
@@ -45,6 +47,7 @@ const Toast = ({ toasts, remove }) => (
     ))}
   </div>
 );
+
 const useToast = () => {
   const [toasts, setToasts] = useState([]);
   const add = useCallback((type, message, sub='', ms=5000) => {
@@ -66,9 +69,95 @@ const useShiftTimer = (running) => {
   }, [running]);
   const fmt = s => {
     const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'00')}`;
   };
   return fmt(secs);
+};
+
+// ─── NOTIFICATIONS PANEL ─────────────────────────────────────────────────────
+const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearAll }) => {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    };
+    if (show) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [show, onClose]);
+
+  if (!show) return null;
+
+  const getIcon = (type) => {
+    if (type === 'success')                      return '✅';
+    if (type === 'warning' || type === 'alert')  return '⚠️';
+    if (type === 'error')                        return '❌';
+    if (type === 'delivery')                     return '🚚';
+    if (type === 'system')                       return '⚙️';
+    if (type === 'payment')                      return '💰';
+    if (type === 'broadcast')                    return '📢';
+    if (type === 'maintenance')                  return '🔧';
+    return 'ℹ️';
+  };
+
+  return (
+    <div ref={ref}
+      className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+        <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+          Notifications
+          {notifications.filter(n => !n.read).length > 0 && (
+            <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+              {notifications.filter(n => !n.read).length}
+            </span>
+          )}
+        </h3>
+        <div className="flex items-center gap-2">
+          {notifications.some(n => !n.read) && (
+            <button onClick={onMarkRead}
+              className="text-xs text-green-600 hover:text-green-700 font-medium">
+              Mark all read
+            </button>
+          )}
+          {notifications.length > 0 && (
+            <button onClick={onClearAll}
+              className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+              <FaTrashAlt size={9} /> Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* List */}
+      <div className="max-h-80 overflow-y-auto">
+        {notifications.length === 0 ? (
+          <div className="py-8 text-center">
+            <FaBell className="text-gray-300 text-3xl mx-auto mb-2" />
+            <p className="text-sm text-gray-400">No notifications</p>
+          </div>
+        ) : (
+          notifications.map((n, i) => (
+            <div key={n._id || n.id || i}
+              className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors
+                ${!n.read ? 'bg-blue-50/40' : ''}`}>
+              <span className="text-base shrink-0 mt-0.5">{getIcon(n.type)}</span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs text-gray-800 ${!n.read ? 'font-bold' : 'font-semibold'}`}>
+                  {n.title}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{n.message}</p>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  {n.createdAt ? new Date(n.createdAt).toLocaleString() : 'Just now'}
+                </p>
+              </div>
+              {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-1.5" />}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
 };
 
 // ─── SIGNATURE CANVAS ────────────────────────────────────────────────────────
@@ -118,12 +207,12 @@ const IncidentModal = ({ onClose, onSubmit }) => {
   const [type, setType] = useState('');
   const [desc, setDesc] = useState('');
   const TYPES = [
-    { id: 'breakdown', label: '🔧 Vehicle Breakdown', color: 'red' },
-    { id: 'accident',  label: '💥 Road Accident',     color: 'red' },
-    { id: 'flat',      label: '🚗 Flat Tyre',          color: 'orange' },
-    { id: 'fuel',      label: '⛽ Out of Fuel',        color: 'orange' },
-    { id: 'delay',     label: '⏳ Traffic Delay',      color: 'yellow' },
-    { id: 'other',     label: '📋 Other',              color: 'gray' },
+    { id: 'breakdown', label: '🔧 Vehicle Breakdown' },
+    { id: 'accident',  label: '💥 Road Accident'     },
+    { id: 'flat',      label: '🚗 Flat Tyre'          },
+    { id: 'fuel',      label: '⛽ Out of Fuel'        },
+    { id: 'delay',     label: '⏳ Traffic Delay'      },
+    { id: 'other',     label: '📋 Other'              },
   ];
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -133,7 +222,7 @@ const IncidentModal = ({ onClose, onSubmit }) => {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
         </div>
         <p className="text-sm text-gray-500 mb-4">Select incident type and describe what happened</p>
-        <div className="grid  gap-2 mb-4">
+        <div className="grid gap-2 mb-4">
           {TYPES.map(t => (
             <button key={t.id} onClick={() => setType(t.id)}
               className={`p-3 rounded-xl border-2 text-sm font-medium text-left transition-all
@@ -162,9 +251,10 @@ const IncidentModal = ({ onClose, onSubmit }) => {
 };
 
 // ─── SETTINGS MODAL ─────────────────────────────────────────────────────────
-const SettingsModal = ({ show, onClose, settings, setSettings, addToast }) => {
+const SettingsModal = ({ show, onClose, settings, setSettings, addToast, onSave }) => {
   if (!show) return null;
-  const toggle = k => { setSettings(p=>({...p,[k]:!p[k]})); addToast('info', `${k.replace(/([A-Z])/g,' $1')} ${settings[k]?'off':'on'}`); };
+  const toggle = (k) => setSettings(p=>({...p,[k]:!p[k]}));
+  const handleSave = () => { if (onSave) onSave(settings); onClose(); };
   const TogRow = ({label,sub,k}) => (
     <div className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
       <div><p className="text-sm font-medium text-gray-800">{label}</p>{sub&&<p className="text-xs text-gray-500 mt-0.5">{sub}</p>}</div>
@@ -181,252 +271,563 @@ const SettingsModal = ({ show, onClose, settings, setSettings, addToast }) => {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
         </div>
         <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-2">Notifications</p>
-        <TogRow label="New Delivery Alerts"     sub="Notify when a job is assigned"       k="newDeliveryAlert" />
-        <TogRow label="SMS Confirmation"        sub="Send SMS on delivery complete"        k="smsConfirm" />
-        <TogRow label="Low Fuel Warning"        sub="Alert when fuel drops below 20%"      k="lowFuelWarn" />
+        <TogRow label="New Delivery Alerts"   sub="Notify when a job is assigned"     k="newDeliveryAlert" />
+        <TogRow label="SMS Confirmation"      sub="Send SMS on delivery complete"      k="smsConfirm" />
+        <TogRow label="Low Fuel Warning"      sub="Alert when fuel drops below 20%"    k="lowFuelWarn" />
         <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mt-4 mb-2">Availability</p>
-        <TogRow label="Auto-Accept Jobs"        sub="Automatically accept nearby jobs"     k="autoAccept" />
-        <TogRow label="Weekend Availability"    sub="Show as available on weekends"        k="weekends" />
-        <TogRow label="Night Shift (8PM–6AM)"   sub="Accept night delivery assignments"    k="nightShift" />
+        <TogRow label="Auto-Accept Jobs"      sub="Automatically accept nearby jobs"   k="autoAccept" />
+        <TogRow label="Weekend Availability"  sub="Show as available on weekends"      k="weekends" />
+        <TogRow label="Night Shift (8PM–6AM)" sub="Accept night delivery assignments"  k="nightShift" />
         <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mt-4 mb-2">Navigation</p>
-        <TogRow label="Voice Navigation"        sub="Turn-by-turn voice instructions"     k="voiceNav" />
-        <TogRow label="Traffic Alerts"          sub="Real-time traffic warnings"           k="trafficAlerts" />
-        <button onClick={onClose} className="mt-5 w-full py-2.5 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 text-sm">Save & Close</button>
+        <TogRow label="Voice Navigation"      sub="Turn-by-turn voice instructions"   k="voiceNav" />
+        <TogRow label="Traffic Alerts"        sub="Real-time traffic warnings"         k="trafficAlerts" />
+        <button onClick={handleSave} className="mt-5 w-full py-2.5 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 text-sm">Save & Close</button>
       </div>
     </div>
   );
 };
 
-// ─── VEHICLE HEALTH CARD ────────────────────────────────────────────────────
-const VehicleHealth = ({ vehicle }) => {
-  const items = [
-    { label:'Fuel',     val:vehicle.fuel,   color:vehicle.fuel<25?'red':vehicle.fuel<50?'yellow':'green', icon:<FaGasPump/> },
-    { label:'Engine',   val:vehicle.engine, color:vehicle.engine>80?'green':vehicle.engine>50?'yellow':'red', icon:<FaTachometerAlt/> },
-    { label:'Tyres',    val:vehicle.tyres,  color:vehicle.tyres>70?'green':vehicle.tyres>40?'yellow':'red', icon:<FaTruck/> },
-    { label:'Oil',      val:vehicle.oil,    color:vehicle.oil>60?'green':vehicle.oil>30?'yellow':'red', icon:<FaOilCan/> },
-  ];
-  const barColor = c => c==='green'?'bg-green-500':c==='yellow'?'bg-yellow-500':'bg-red-500';
-  const textColor = c => c==='green'?'text-green-600':c==='yellow'?'text-yellow-600':'text-red-600';
+// ─── PROFILE TAB COMPONENT ───────────────────────────────────────────────────
+const ProfileTab = ({ driverInfo, perf, API_URL, addToast, fetchDriverData }) => {
+  const [profileTab, setProfileTab] = useState('info');
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    firstName: driverInfo.name.split(' ')[0] || '',
+    lastName:  driverInfo.name.split(' ')[1] || '',
+    phone:     driverInfo.phone || '',
+  });
+  const [pwForm, setPwForm] = useState({
+    currentPassword: '', newPassword: '', confirmPassword: ''
+  });
+  const [showPw, setShowPw] = useState({ current: false, new: false, confirm: false });
+
+  useEffect(() => {
+    setForm({
+      firstName: driverInfo.name.split(' ')[0] || '',
+      lastName:  driverInfo.name.split(' ')[1] || '',
+      phone:     driverInfo.phone || '',
+    });
+  }, [driverInfo.name, driverInfo.phone]);
+
+  const handleProfileSave = async () => {
+    try {
+      setSaving(true);
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`${API_URL}/driver/profile`, form, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) { addToast('success', 'Profile updated successfully'); fetchDriverData(); }
+    } catch (err) {
+      addToast('error', 'Failed to update profile', err.response?.data?.message);
+    } finally { setSaving(false); }
+  };
+
+  const handlePasswordChange = async () => {
+    if (pwForm.newPassword !== pwForm.confirmPassword) return addToast('error', 'New passwords do not match');
+    if (pwForm.newPassword.length < 8) return addToast('error', 'Password must be at least 8 characters');
+    try {
+      setSaving(true);
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`${API_URL}/driver/change-password`, pwForm, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        addToast('success', 'Password changed successfully');
+        setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }
+    } catch (err) {
+      addToast('error', 'Failed to change password', err.response?.data?.message);
+    } finally { setSaving(false); }
+  };
+
+  const inputClass = "w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none";
+
   return (
-    <div className="bg-white rounded-xl shadow-lg p-5 mb-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-bold text-gray-800 text-base flex items-center gap-2"><FaWrench className="text-green-600"/>Vehicle Health</h3>
-        <span className="text-xs text-gray-400">TKR-002</span>
-      </div>
-      <div className="grid  gap-4">
-        {items.map(({label,val,color,icon})=>(
-          <div key={label}>
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-xs text-gray-500 flex items-center gap-1">{icon} {label}</span>
-              <span className={`text-xs font-bold ${textColor(color)}`}>{val}%</span>
-            </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div className={`h-full ${barColor(color)} rounded-full transition-all duration-700`} style={{width:`${val}%`}}/>
-            </div>
-          </div>
-        ))}
-      </div>
-      {(vehicle.fuel<25||vehicle.engine<50||vehicle.tyres<40||vehicle.oil<30) && (
-        <div className="mt-3 bg-red-50 border border-red-100 rounded-xl p-3 flex gap-2 text-xs text-red-700">
-          <FaExclamationTriangle className="shrink-0 mt-0.5"/>
-          <span>Vehicle requires attention. Contact maintenance.</span>
+    <div>
+      <div className="flex items-center gap-4 mb-6 p-5 bg-gradient-to-r from-green-600 to-emerald-700 rounded-2xl text-white">
+        <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-2xl font-black">
+          {driverInfo.name.split(' ').map(n => n[0]).join('')}
         </div>
-      )}
-    </div>
-  );
-};
+        <div>
+          <p className="text-xl font-black">{driverInfo.name}</p>
+          <p className="text-green-100 text-sm">{driverInfo.id} · {driverInfo.tanker}</p>
+          <div className="flex items-center gap-1 mt-1">
+            {[1,2,3,4,5].map(i => (
+              <FaStar key={i} className={`text-xs ${i <= Math.floor(perf.rating) ? 'text-yellow-300' : 'text-white/30'}`} />
+            ))}
+            <span className="text-xs text-green-100 ml-1">{perf.rating} rating</span>
+          </div>
+        </div>
+      </div>
 
-// ─── EARNINGS CARD ──────────────────────────────────────────────────────────
-const EarningsCard = ({ earnings }) => {
-  const [view, setView] = useState('today');
-  const data = { today: earnings.today, week: earnings.week, month: earnings.month };
-  return (
-    <div className="bg-gradient-to-br from-green-600 to-emerald-700 rounded-xl shadow-lg p-5 mb-6 text-white">
-      <div className="flex justify-between items-center mb-3">
-        <h3 className="font-bold text-base flex items-center gap-2"><FaMoneyBillWave/> Earnings</h3>
-        <div className="flex bg-green-500/40 rounded-lg p-0.5 text-xs">
-          {['today','week','month'].map(v=>(
-            <button key={v} onClick={()=>setView(v)}
-              className={`px-2.5 py-1 rounded-md font-medium capitalize transition-all
-                ${view===v?'bg-white text-green-700 shadow':'text-green-100 hover:text-white'}`}>
-              {v}
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-4">
+        <div className="flex border-b border-gray-100">
+          {[['info', '👤 Profile Info'], ['password', '🔑 Change Password']].map(([id, label]) => (
+            <button key={id} onClick={() => setProfileTab(id)}
+              className={`flex-1 py-3 text-sm font-semibold transition-colors
+                ${profileTab === id ? 'border-b-2 border-green-600 text-green-600' : 'text-gray-500 hover:text-gray-700'}`}>
+              {label}
             </button>
           ))}
         </div>
+        <div className="p-5">
+          {profileTab === 'info' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 font-medium mb-1 block">First Name</label>
+                  <input value={form.firstName} onChange={e => setForm(p => ({...p, firstName: e.target.value}))} className={inputClass} placeholder="First name" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium mb-1 block">Last Name</label>
+                  <input value={form.lastName} onChange={e => setForm(p => ({...p, lastName: e.target.value}))} className={inputClass} placeholder="Last name" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 font-medium mb-1 block">Phone Number</label>
+                <input value={form.phone} onChange={e => setForm(p => ({...p, phone: e.target.value}))} className={inputClass} placeholder="Phone number" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 font-medium mb-1 block">Email</label>
+                <input value={driverInfo.email} disabled className={`${inputClass} bg-gray-50 text-gray-400 cursor-not-allowed`} />
+                <p className="text-xs text-gray-400 mt-1">Email cannot be changed. Contact support.</p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 font-medium mb-1 block">Tanker ID</label>
+                <input value={driverInfo.tanker} disabled className={`${inputClass} bg-gray-50 text-gray-400 cursor-not-allowed`} />
+              </div>
+              <button onClick={handleProfileSave} disabled={saving}
+                className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                {saving ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Changes'}
+              </button>
+            </div>
+          )}
+          {profileTab === 'password' && (
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                🔒 Password must be at least 8 characters long.
+              </div>
+              {[
+                { key: 'currentPassword', label: 'Current Password',     show: 'current' },
+                { key: 'newPassword',     label: 'New Password',         show: 'new'     },
+                { key: 'confirmPassword', label: 'Confirm New Password', show: 'confirm' },
+              ].map(({ key, label, show }) => (
+                <div key={key}>
+                  <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
+                  <div className="relative">
+                    <input type={showPw[show] ? 'text' : 'password'} value={pwForm[key]}
+                      onChange={e => setPwForm(p => ({...p, [key]: e.target.value}))}
+                      className={`${inputClass} pr-10`} placeholder={label} />
+                    <button type="button" onClick={() => setShowPw(p => ({...p, [show]: !p[show]}))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">
+                      {showPw[show] ? '🙈' : '👁️'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {pwForm.newPassword && (
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-500">Password strength</span>
+                    <span className={pwForm.newPassword.length >= 12 ? 'text-green-600 font-semibold' : pwForm.newPassword.length >= 8 ? 'text-yellow-600 font-semibold' : 'text-red-600 font-semibold'}>
+                      {pwForm.newPassword.length >= 12 ? 'Strong' : pwForm.newPassword.length >= 8 ? 'Good' : 'Too short'}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-300 ${pwForm.newPassword.length >= 12 ? 'w-full bg-green-500' : pwForm.newPassword.length >= 8 ? 'w-2/3 bg-yellow-500' : 'w-1/3 bg-red-500'}`} />
+                  </div>
+                </div>
+              )}
+              {pwForm.confirmPassword && (
+                <p className={`text-xs font-medium flex items-center gap-1 ${pwForm.newPassword === pwForm.confirmPassword ? 'text-green-600' : 'text-red-500'}`}>
+                  {pwForm.newPassword === pwForm.confirmPassword ? '✅ Passwords match' : '❌ Passwords do not match'}
+                </p>
+              )}
+              <button onClick={handlePasswordChange}
+                disabled={saving || !pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword}
+                className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                {saving ? <><FaSpinner className="animate-spin" /> Changing...</> : '🔑 Change Password'}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-      <p className="text-4xl font-black mb-1">₦{data[view].total.toLocaleString()}</p>
-      <p className="text-green-100 text-sm mb-4">{data[view].deliveries} deliveries · {data[view].km} km covered</p>
-      <div className="grid grid-cols-3 gap-3">
+
+      <div className="space-y-3 mb-4">
         {[
-          {label:'Base Pay', val:data[view].base},
-          {label:'Bonus',    val:data[view].bonus},
-          {label:'Tips',     val:data[view].tips},
-        ].map(({label,val})=>(
-          <div key={label} className="bg-white/15 rounded-xl p-3 backdrop-blur-sm">
-            <p className="text-xs text-green-100">{label}</p>
-            <p className="font-bold">₦{val.toLocaleString()}</p>
+          { icon: <FaPhone />,     label: 'Phone',           val: driverInfo.phone  },
+          { icon: <FaEnvelope />,  label: 'Email',           val: driverInfo.email  },
+          { icon: <FaTruck />,     label: 'Assigned Tanker', val: driverInfo.tanker },
+          { icon: <FaKey />,       label: 'Driver ID',       val: driverInfo.id     },
+          { icon: <FaShieldAlt />, label: 'License Exp',     val: 'Dec 2026'        },
+        ].map(({ icon, label, val }) => (
+          <div key={label} className="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+            <div className="text-green-600 w-5 text-center shrink-0">{icon}</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-500">{label}</p>
+              <p className="font-semibold text-gray-800 text-sm truncate">{val}</p>
+            </div>
           </div>
         ))}
       </div>
+
+      <button onClick={() => addToast('info', 'Support contacted', 'Our team will respond within 30 minutes.')}
+        className="w-full flex items-center justify-center gap-2 py-3 bg-blue-50 text-blue-700 rounded-xl text-sm font-semibold hover:bg-blue-100 border border-blue-200 transition-colors">
+        <FaHeadset /> Contact Support
+      </button>
     </div>
   );
 };
-
-// ─── PERFORMANCE CARD ───────────────────────────────────────────────────────
-const PerformanceCard = ({ perf }) => (
-  <div className="bg-white rounded-xl shadow-lg p-5 mb-6">
-    <h3 className="font-bold text-gray-800 text-base flex items-center gap-2 mb-4"><FaChartBar className="text-green-600"/>Performance</h3>
-    <div className="grid  gap-3">
-      {[
-        {label:'Rating',         val:`${perf.rating}/5`,    icon:<FaStar className="text-yellow-500"/>,  bg:'bg-yellow-50'},
-        {label:'On-Time %',      val:`${perf.onTime}%`,     icon:<FaClock className="text-blue-500"/>,   bg:'bg-blue-50'},
-        {label:'Total Deliveries',val:perf.total,           icon:<FaCheckCircle className="text-green-500"/>, bg:'bg-green-50'},
-        {label:'Incidents',      val:perf.incidents,        icon:<FaExclamationTriangle className="text-orange-400"/>, bg:'bg-orange-50'},
-      ].map(({label,val,icon,bg})=>(
-        <div key={label} className={`${bg} rounded-xl p-3 flex items-center gap-3`}>
-          <div className="text-xl">{icon}</div>
-          <div><p className="text-xs text-gray-500">{label}</p><p className="font-bold text-gray-800">{val}</p></div>
-        </div>
-      ))}
-    </div>
-    <div className="mt-4">
-      <div className="flex justify-between text-xs mb-1">
-        <span className="text-gray-500">Monthly Target</span>
-        <span className="font-semibold text-green-600">{perf.targetPct}%</span>
-      </div>
-      <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-        <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-700" style={{width:`${perf.targetPct}%`}}/>
-      </div>
-    </div>
-  </div>
-);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════
 const DriverDashboard = () => {
+  const navigate = useNavigate();
   const {toasts, add: addToast, remove: removeToast} = useToast();
-  const [activeTab, setActiveTab] = useState('today');
-  const [isOnline, setIsOnline] = useState(true);
-  const [showRoute, setShowRoute] = useState(false);
-  const [showSignature, setShowSignature] = useState(false);
-  const [showIncident, setShowIncident] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [activeDeliveryId, setActiveDeliveryId] = useState('DEL-002');
-  const [shiftRunning, setShiftRunning] = useState(true);
+  const [loading, setLoading]                         = useState(true);
+  const [activeTab, setActiveTab]                     = useState('today');
+  const [isOnline, setIsOnline]                       = useState(true);
+  const [showRoute, setShowRoute]                     = useState(false);
+  const [showSignature, setShowSignature]             = useState(false);
+  const [showIncident, setShowIncident]               = useState(false);
+  const [showSettings, setShowSettings]               = useState(false);
+  const [showNotifications, setShowNotifications]     = useState(false); // ✅
+  const [activeDeliveryId, setActiveDeliveryId]       = useState(null);
+  const [shiftRunning, setShiftRunning]               = useState(true);
   const shiftTime = useShiftTimer(shiftRunning);
 
-  const [settings, setSettings] = useState({
-    newDeliveryAlert:true, smsConfirm:true, lowFuelWarn:true,
-    autoAccept:false, weekends:false, nightShift:false,
-    voiceNav:true, trafficAlerts:true,
+  const [driverInfo, setDriverInfo] = useState({
+    name: '', id: '', tanker: '', phone: '', email: '', rating: 0, totalDeliveries: 0
   });
 
-  const driverInfo = {
-    name:'Musa Ibrahim', id:'DRV-002', tanker:'TKR-002',
-    phone:'+234 802 234 5678', email:'musa.i@hydromail.com',
+  const [settings, setSettings] = useState({
+    newDeliveryAlert: true, smsConfirm: true, lowFuelWarn: true,
+    autoAccept: false, weekends: false, nightShift: false,
+    voiceNav: true, trafficAlerts: true,
+  });
+
+  const [vehicle, setVehicle] = useState({ fuel: 0, engine: 0, tyres: 0, oil: 0 });
+
+  const [earnings, setEarnings] = useState({
+    today: { total: 0, deliveries: 0, km: 0, base: 0, bonus: 0, tips: 0 },
+    week:  { total: 0, deliveries: 0, km: 0, base: 0, bonus: 0, tips: 0 },
+    month: { total: 0, deliveries: 0, km: 0, base: 0, bonus: 0, tips: 0 }
+  });
+
+  const [perf, setPerf]                           = useState({ rating: 0, onTime: 0, total: 0, incidents: 0, targetPct: 0 });
+  const [deliveries, setDeliveries]               = useState([]);
+  const [historyDeliveries, setHistoryDeliveries] = useState([]);
+  const [notifications, setNotifications]         = useState([]); // ✅ filled from backend
+
+  const [earningsPeriod, setEarningsPeriod] = useState('today');
+  const [showWithdrawal, setShowWithdrawal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawBank, setWithdrawBank]     = useState('');
+  const [withdrawAccount, setWithdrawAccount] = useState('');
+  const [withdrawing, setWithdrawing]       = useState(false);
+  const [commission, setCommission]         = useState({
+    baseRatePerLiter:  100,
+    bonusPerDelivery:  200,
+    tipAverage:        50,
+    commissionPercent: 15,
+  });
+
+  // ─── Save settings ────────────────────────────────────────────────────────
+  const saveSettings = async (newSettings) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`${API_URL}/driver/settings`, newSettings, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) addToast('success', 'Settings saved successfully');
+    } catch (err) {
+      addToast('error', 'Failed to save settings', err.response?.data?.message);
+    }
   };
 
-  const vehicle = { fuel:22, engine:88, tyres:65, oil:45 };
-
-  const earnings = {
-    today: { total:4500, deliveries:3, km:28, base:3500, bonus:700, tips:300 },
-    week:  { total:28000, deliveries:18, km:164, base:22000, bonus:4000, tips:2000 },
-    month: { total:112000, deliveries:72, km:680, base:88000, bonus:16000, tips:8000 },
+  // ─── Mark all notifications as read ──────────────────────────────────────
+  const markAllRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // Optimistic update
+      setNotifications(p => p.map(n => ({ ...n, read: true })));
+      const unread = notifications.filter(n => !n.read);
+      await Promise.all(
+        unread.map(n =>
+          axios.put(`${API_URL}/driver/notifications/${n._id}/read`, {}, {
+            headers: { Authorization: `Bearer ${token}` }
+          }).catch(() => {})
+        )
+      );
+    } catch (err) {
+      console.error('Error marking notifications read:', err);
+    }
   };
 
-  const perf = { rating:4.7, onTime:92, total:312, incidents:2, targetPct:76 };
-
-  const [deliveries, setDeliveries] = useState([
-    {
-      id:'DEL-001', time:'08:00 AM', location:'PLASU Main Campus',
-      address:'Daniel Hall, Room B202', amount:500,
-      status:'completed', recipient:'John Danladi', phone:'+234 803 123 4567',
-      notes:'Ring bell twice. Gate code: 4412.',
-      lat:9.3280, lng:8.9910,
-    },
-    {
-      id:'DEL-002', time:'10:30 AM', location:'Bokkos General Hospital',
-      address:'Main Ward, Block C', amount:800,
-      status:'in-progress', recipient:'Matron Esther', phone:'+234 804 567 8901',
-      eta:'12 min', notes:'Use staff entrance. Ask for Matron Esther.',
-      lat:9.3310, lng:8.9870,
-    },
-    {
-      id:'DEL-003', time:'02:00 PM', location:'Bokkos Market',
-      address:'Shop 45, Market Road', amount:600,
-      status:'pending', recipient:'Alhaji Musa', phone:'+234 805 678 9012',
-      notes:'Call ahead 10 minutes before arrival.',
-      lat:9.3240, lng:8.9960,
-    },
-    {
-      id:'DEL-004', time:'04:30 PM', location:'St. Peters Secondary School',
-      address:'Admin Block', amount:1000,
-      status:'pending', recipient:'Mr. Chukwu', phone:'+234 806 789 0123',
-      notes:'Large tank at back of school. Coordinate with security.',
-      lat:9.3290, lng:8.9920,
-    },
-  ]);
-
-  const historyDeliveries = [
-    {id:'H001', date:'Yesterday', location:'Bokkos LGA Office', amount:1200, status:'completed', time:'09:00 AM'},
-    {id:'H002', date:'Yesterday', location:'PLASU Hostel Block A', amount:500, status:'completed', time:'02:30 PM'},
-    {id:'H003', date:'2 days ago', location:'Barkin Ladi Market', amount:800, status:'completed', time:'11:00 AM'},
-    {id:'H004', date:'2 days ago', location:'Community Clinic', amount:600, status:'completed', time:'03:00 PM'},
-  ];
-
-  const routePoints = [[9.3265,8.9947],[9.3280,8.9910],[9.3310,8.9870],[9.3240,8.9960]];
-
-  const startDelivery = id => {
-    setDeliveries(p=>p.map(d=>d.id===id?{...d,status:'in-progress'}:d));
-    setActiveDeliveryId(id);
-    addToast('success','Delivery started!','Navigation is now active.');
+  // ─── Clear all notifications ──────────────────────────────────────────────
+  const clearAllNotifications = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/driver/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications([]);
+    } catch (err) {
+      console.error('Error clearing notifications:', err);
+    }
   };
 
-  const pauseDelivery = id => {
-    addToast('warn','Delivery paused','Tap Resume when ready to continue.');
+  // ─── Fetch all driver data ────────────────────────────────────────────────
+ const fetchDriverData = async () => {
+  try {
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    if (!token) { navigate('/driver-login'); return; }
+
+    const profileRes = await axios.get(`${API_URL}/driver/profile`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (profileRes.data.success) {
+      const driver = profileRes.data.data;
+      setDriverInfo({
+        name:            `${driver.firstName} ${driver.lastName}`,
+        id:              driver._id?.slice(-6).toUpperCase() || driver.tankerId || 'DRV-001',
+        tanker:          driver.tankerId || 'TKR-001',
+        phone:           driver.phone,
+        email:           driver.email,
+        rating:          driver.rating || 0,
+        totalDeliveries: driver.totalDeliveries || 0
+      });
+      setVehicle({
+        fuel:   driver.vehicleHealth?.fuel   || 68,
+        engine: driver.vehicleHealth?.engine || 88,
+        tyres:  driver.vehicleHealth?.tyres  || 72,
+        oil:    driver.vehicleHealth?.oil    || 55
+      });
+    }
+
+    const settingsRes = await axios.get(`${API_URL}/driver/settings`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (settingsRes.data.success) setSettings(settingsRes.data.data);
+
+    // ✅ Added console logs for deliveries
+    console.log('🚀 Fetching today deliveries...');
+    const deliveriesRes = await axios.get(`${API_URL}/driver/deliveries/today`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    console.log('📦 Deliveries response:', deliveriesRes.data);
+    console.log('📦 Deliveries data array:', deliveriesRes.data.data);
+    console.log('📦 Number of deliveries:', deliveriesRes.data.data?.length || 0);
+    
+    if (deliveriesRes.data.success) {
+      setDeliveries(deliveriesRes.data.data);
+      const active = deliveriesRes.data.data.find(d => d.status === 'in-progress');
+      if (active) setActiveDeliveryId(active.id || active._id);
+    } else {
+      console.log('❌ Deliveries response not successful:', deliveriesRes.data);
+    }
+
+    const historyRes = await axios.get(`${API_URL}/driver/deliveries/history`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (historyRes.data.success) setHistoryDeliveries(historyRes.data.data);
+
+    const earningsRes = await axios.get(`${API_URL}/driver/earnings`, {
+      headers: { Authorization: `Bearer ${token}` }
+     });
+    if (earningsRes.data.success) {
+      setEarnings(earningsRes.data.data);
+      // ✅ Also update commission rates from earnings response
+      if (earningsRes.data.data.rates) {
+        setCommission(prev => ({
+          ...prev,
+          baseRatePerLiter: earningsRes.data.data.rates.baseRatePerLiter,
+          bonusPerDelivery: earningsRes.data.data.rates.bonusPerDelivery,
+          tipAverage:       earningsRes.data.data.rates.tipAverage,
+        }));
+      }
+}
+
+
+    const perfRes = await axios.get(`${API_URL}/driver/performance`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (perfRes.data.success) setPerf(perfRes.data.data);
+
+    // ✅ Fetch notifications from backend
+    try {
+      console.log('🔔 Fetching notifications...');
+      const notifRes = await axios.get(`${API_URL}/driver/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (notifRes.data.success) {
+        console.log('🔔 Notifications count:', notifRes.data.data?.length || 0);
+        setNotifications(notifRes.data.data || []);
+      }
+    } catch (notifErr) {
+      console.error('Error fetching notifications:', notifErr);
+    }
+
+    // ✅ Fetch commission rates from admin settings
+    try {
+      const commissionRes = await axios.get(`${API_URL}/admin/pricing/public`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (commissionRes.data.success) {
+        const c = commissionRes.data.data;
+        setCommission(prev => ({
+          ...prev,
+          baseRatePerLiter:  c.baseRatePerLiter  || 100,
+          bonusPerDelivery:  c.bonusPerDelivery  || 200,
+          tipAverage:        c.tipAverage        || 50,
+          commissionPercent: c.commissionPercent || 15,
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching commission:', err);
+    }
+
+    
+
+  } catch (err) {
+    console.error('Error fetching driver data:', err);
+    addToast('error', 'Failed to load dashboard data', err.response?.data?.message);
+    if (err.response?.status === 401) navigate('/driver-login');
+  } finally {
+    setLoading(false);
+  }
+};
+
+  useEffect(() => { fetchDriverData(); }, []);
+
+  // ✅ Poll notifications every 30 seconds for real-time updates
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const res = await axios.get(`${API_URL}/driver/notifications`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data.success) setNotifications(res.data.data || []);
+      } catch (err) {}
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!isOnline) return;
+    const updateLocation = async () => {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          try {
+            const token = localStorage.getItem('token');
+            await axios.put(`${API_URL}/driver/location`, {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            }, { headers: { Authorization: `Bearer ${token}` } });
+          } catch (err) { console.error('Error updating location:', err); }
+        });
+      }
+    };
+    updateLocation();
+    const interval = setInterval(updateLocation, 30000);
+    return () => clearInterval(interval);
+  }, [isOnline]);
+
+  const startDelivery = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`${API_URL}/driver/deliveries/${id}/start`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setDeliveries(deliveries.map(d => d.id === id || d._id === id ? { ...d, status: 'in-progress' } : d));
+        setActiveDeliveryId(id);
+        addToast('success', 'Delivery started!', 'Navigation is now active.');
+      }
+    } catch (err) { addToast('error', 'Failed to start delivery', err.response?.data?.message); }
   };
 
-  const completeDelivery = id => {
-    setShowSignature(true);
+  const completeDelivery = (id) => { setActiveDeliveryId(id); setShowSignature(true); };
+
+  const handleSignatureSave = async (signatureData) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`${API_URL}/driver/deliveries/${activeDeliveryId}/complete`,
+        { signature: signatureData },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.data.success) {
+        setDeliveries(deliveries.map(d =>
+          (d.id === activeDeliveryId || d._id === activeDeliveryId) ? { ...d, status: 'completed' } : d
+        ));
+        const next = deliveries.find(d => d.status === 'pending');
+        setActiveDeliveryId(next ? (next.id || next._id) : null);
+        setShowSignature(false);
+        addToast('success', 'Delivery confirmed!', 'Signature captured. Receipt sent to recipient.');
+        fetchDriverData();
+      }
+    } catch (err) { addToast('error', 'Failed to complete delivery', err.response?.data?.message); }
   };
 
-  const handleSignatureSave = () => {
-    setDeliveries(p=>p.map(d=>d.id===activeDeliveryId?{...d,status:'completed'}:d));
-    const next = deliveries.find(d=>d.status==='pending');
-    if(next){ setActiveDeliveryId(next.id); }
-    else { setActiveDeliveryId(null); }
-    setShowSignature(false);
-    addToast('success','Delivery confirmed!','Signature captured. Receipt sent to recipient.');
+  const handleIncidentSubmit = async (type, desc) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.post(`${API_URL}/driver/incidents`, { type, description: desc }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setShowIncident(false);
+        addToast('warn', 'Incident reported', 'Dispatch has been notified. Stay safe!', 7000);
+        setPerf(prev => ({ ...prev, incidents: prev.incidents + 1 }));
+      }
+    } catch (err) { addToast('error', 'Failed to report incident', err.response?.data?.message); }
   };
 
-  const handleIncidentSubmit = (type, desc) => {
-    setShowIncident(false);
-    addToast('warn','Incident reported','Dispatch has been notified. Stay safe!', 7000);
+  const toggleOnline = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const newStatus = !isOnline;
+      const res = await axios.put(`${API_URL}/driver/status`, { online: newStatus }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setIsOnline(newStatus);
+        setShiftRunning(newStatus);
+        addToast(newStatus ? 'success' : 'info',
+          newStatus ? 'You are now online and receiving jobs' : 'You are now offline');
+      }
+    } catch (err) { addToast('error', 'Failed to update status', err.response?.data?.message); }
   };
 
-  const openMaps = (lat, lng, label) => {
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&destination_place_id=${label}`, '_blank');
-  };
-
-  const callRecipient = phone => {
-    window.open(`tel:${phone}`);
-    addToast('info',`Calling ${phone}`);
-  };
-
-  const activeDelivery = deliveries.find(d=>d.id===activeDeliveryId && d.status==='in-progress');
+  const completedToday = deliveries.filter(d => d.status === 'completed').length;
+  const pendingToday   = deliveries.filter(d => d.status === 'pending').length;
+  const totalWater     = deliveries.filter(d => d.status === 'completed').reduce((a, d) => a + (d.amount || 0), 0);
+  const activeDelivery = deliveries.find(d => (d.id === activeDeliveryId || d._id === activeDeliveryId) && d.status === 'in-progress');
+  const unreadCount    = notifications.filter(n => !n.read).length; // ✅
 
   const TABS = [
-    {id:'today',   label:'Today'},
-    {id:'map',     label:'Live Map'},
-    {id:'earnings',label:'Earnings'},
-    {id:'history', label:'History'},
-    {id:'profile', label:'Profile'},
+    { id: 'today',    label: 'Today'    },
+    { id: 'map',      label: 'Live Map' },
+    { id: 'earnings', label: 'Earnings' },
+    { id: 'history',  label: 'History'  },
+    { id: 'profile',  label: 'Profile'  },
   ];
 
-  const completedToday = deliveries.filter(d=>d.status==='completed').length;
-  const pendingToday   = deliveries.filter(d=>d.status==='pending').length;
-  const totalWater     = deliveries.filter(d=>d.status==='completed').reduce((a,d)=>a+d.amount,0);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center">
+        <div className="text-center">
+          <FaSpinner className="animate-spin text-green-600 text-4xl mx-auto mb-4" />
+          <p className="text-gray-600 font-medium">Loading driver dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-green-50">
@@ -436,11 +837,15 @@ const DriverDashboard = () => {
       `}</style>
 
       <Toast toasts={toasts} remove={removeToast} />
-      {showSignature && <SignatureCanvas onSave={handleSignatureSave} onClose={()=>setShowSignature(false)} />}
-      {showIncident  && <IncidentModal onClose={()=>setShowIncident(false)} onSubmit={handleIncidentSubmit} />}
-      <SettingsModal show={showSettings} onClose={()=>setShowSettings(false)} settings={settings} setSettings={setSettings} addToast={addToast} />
+      {showSignature && <SignatureCanvas onSave={handleSignatureSave} onClose={() => setShowSignature(false)} />}
+      {showIncident  && <IncidentModal onClose={() => setShowIncident(false)} onSubmit={handleIncidentSubmit} />}
+      <SettingsModal
+        show={showSettings} onClose={() => setShowSettings(false)}
+        settings={settings} setSettings={setSettings}
+        addToast={addToast} onSave={saveSettings}
+      />
 
-      {/* ── HEADER ── */}
+      {/* ── Header ── */}
       <header className="bg-white shadow-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
@@ -455,32 +860,46 @@ const DriverDashboard = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Panic / Incident button */}
-              <button onClick={()=>setShowIncident(true)}
+              <button onClick={() => setShowIncident(true)}
                 className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors">
-                <FaExclamationTriangle size={11}/> Report Incident
+                <FaExclamationTriangle size={11} /> Report Incident
               </button>
 
-              {/* Online toggle */}
-              <button onClick={()=>{setIsOnline(p=>!p); setShiftRunning(p=>!p); addToast(isOnline?'info':'success', isOnline?'You are now offline':'You are now online and receiving jobs');}}
+              <button onClick={toggleOnline}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
-                  ${isOnline?'bg-green-100 text-green-700 border-green-200':'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                <span className={`w-2 h-2 rounded-full ${isOnline?'bg-green-500 animate-pulse':'bg-gray-400'}`}></span>
-                {isOnline?'Online':'Offline'}
+                  ${isOnline ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+                {isOnline ? 'Online' : 'Offline'}
               </button>
 
-              <button className="relative" onClick={()=>addToast('info','2 new notifications','New job assigned · Low fuel warning')}>
-                <FaBell className="text-gray-500 text-lg"/>
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">2</span>
-              </button>
+              {/* ✅ Notifications Bell with Real Panel */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications(p => !p)}
+                  className="relative w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
+                  <FaBell className="text-gray-500 text-sm" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                <NotificationsPanel
+                  show={showNotifications}
+                  onClose={() => setShowNotifications(false)}
+                  notifications={notifications}
+                  onMarkRead={markAllRead}
+                  onClearAll={clearAllNotifications}
+                />
+              </div>
 
-              <button onClick={()=>setShowSettings(true)}
+              <button onClick={() => setShowSettings(true)}
                 className="w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
-                <FaCog className="text-gray-500 text-sm"/>
+                <FaCog className="text-gray-500 text-sm" />
               </button>
 
               <div className="h-9 w-9 bg-gradient-to-br from-green-600 to-emerald-700 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                MI
+                {driverInfo.name.split(' ').map(n => n[0]).join('')}
               </div>
             </div>
           </div>
@@ -488,59 +907,52 @@ const DriverDashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-
-        {/* ── ACTIVE DELIVERY BANNER ── */}
+        {/* Active Delivery Banner */}
         {activeDelivery && (
           <div className="bg-white rounded-2xl shadow-xl p-4 mb-6 border-l-4 border-green-500 overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-green-50 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"/>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-green-50 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
             <div className="relative flex flex-col md:flex-row justify-between gap-4">
               <div className="flex items-start gap-3">
                 <div className="bg-green-100 p-3 rounded-xl shrink-0 animate-pulse">
-                  <FaRoute className="text-green-600 text-xl"/>
+                  <FaRoute className="text-green-600 text-xl" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
                     <p className="font-bold text-gray-800">Active: {activeDelivery.location}</p>
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">ETA {activeDelivery.eta}</span>
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">ETA {activeDelivery.eta || '15 min'}</span>
                   </div>
                   <p className="text-sm text-gray-500">{activeDelivery.address} · {activeDelivery.amount}L</p>
                   {activeDelivery.notes && (
-                    <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-lg mt-1.5 inline-block">
-                      📋 {activeDelivery.notes}
-                    </p>
+                    <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-lg mt-1.5 inline-block">📋 {activeDelivery.notes}</p>
                   )}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 shrink-0">
-                <button onClick={()=>callRecipient(activeDelivery.phone)}
+                <button onClick={() => window.open(`tel:${activeDelivery.phone}`)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-xl text-xs font-semibold hover:bg-blue-100 border border-blue-100 transition-colors">
-                  <FaPhone size={11}/> Call
+                  <FaPhone size={11} /> Call
                 </button>
-                <button onClick={()=>openMaps(activeDelivery.lat, activeDelivery.lng, activeDelivery.location)}
+                <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${activeDelivery.lat},${activeDelivery.lng}`)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-semibold hover:bg-indigo-100 border border-indigo-100 transition-colors">
-                  <MdDirections size={14}/> Navigate
+                  <MdDirections size={14} /> Navigate
                 </button>
-                <button onClick={()=>pauseDelivery(activeDelivery.id)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-yellow-50 text-yellow-700 rounded-xl text-xs font-semibold hover:bg-yellow-100 border border-yellow-100 transition-colors">
-                  <FaPause size={10}/> Pause
-                </button>
-                <button onClick={()=>completeDelivery(activeDelivery.id)}
+                <button onClick={() => completeDelivery(activeDelivery.id || activeDelivery._id)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors shadow-md shadow-green-200">
-                  <FaCheck size={10}/> Complete
+                  <FaCheck size={10} /> Complete
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── QUICK STATS ROW ── */}
-        <div className="grid  sm:grid-cols-4 gap-3 mb-6">
+        {/* Quick Stats */}
+        <div className="grid sm:grid-cols-4 gap-3 mb-6">
           {[
-            {label:'Completed',  val:completedToday, icon:<FaCheckCircle className="text-green-600"/>,  bg:'bg-green-100'},
-            {label:'Pending',    val:pendingToday,   icon:<FaClock className="text-yellow-600"/>,        bg:'bg-yellow-100'},
-            {label:'Water Delivered', val:`${totalWater}L`, icon:<MdOutlineWaterDrop className="text-blue-600 text-lg"/>, bg:'bg-blue-100'},
-            {label:"Today's Pay",val:`₦${earnings.today.total.toLocaleString()}`, icon:<FaMoneyBillWave className="text-emerald-600"/>, bg:'bg-emerald-100'},
-          ].map(({label,val,icon,bg})=>(
+            { label: 'Completed',       val: completedToday,                              icon: <FaCheckCircle className="text-green-600" />,            bg: 'bg-green-100'   },
+            { label: 'Pending',         val: pendingToday,                                icon: <FaClock className="text-yellow-600" />,                 bg: 'bg-yellow-100'  },
+            { label: 'Water Delivered', val: `${totalWater}L`,                            icon: <MdOutlineWaterDrop className="text-blue-600 text-lg" />, bg: 'bg-blue-100'    },
+            { label: "Today's Pay",     val: `₦${earnings.today.total.toLocaleString()}`, icon: <FaMoneyBillWave className="text-emerald-600" />,         bg: 'bg-emerald-100' },
+          ].map(({ label, val, icon, bg }) => (
             <div key={label} className="bg-white rounded-xl shadow-md p-3.5 hover:shadow-lg transition-shadow">
               <div className={`${bg} w-9 h-9 rounded-lg flex items-center justify-center mb-2`}>{icon}</div>
               <p className="text-xs text-gray-500">{label}</p>
@@ -549,29 +961,46 @@ const DriverDashboard = () => {
           ))}
         </div>
 
-        {/* ── VEHICLE HEALTH WARNING (if critical) ── */}
+        {/* Low Fuel Warning */}
         {vehicle.fuel < 25 && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-5 flex items-center gap-3">
-            <FaGasPump className="text-red-500 text-xl shrink-0"/>
+            <FaGasPump className="text-red-500 text-xl shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-bold text-red-700">Low Fuel — {vehicle.fuel}% remaining</p>
               <p className="text-xs text-red-500">Refuel before next delivery to avoid delays.</p>
             </div>
-            <button onClick={()=>addToast('info','Nearest fuel station noted','2.3 km away on Bokkos Road')}
+            <button onClick={() => addToast('info', 'Nearest fuel station noted', '2.3 km away on Bokkos Road')}
               className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-red-700">
               Find Station
             </button>
           </div>
         )}
 
-        {/* ── TABS ── */}
+        {/* ✅ Unread notification banner */}
+        {unreadCount > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5 flex items-center gap-3">
+            <FaBell className="text-blue-500 text-lg shrink-0 animate-pulse" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-blue-700">
+                You have {unreadCount} unread notification{unreadCount > 1 ? 's' : ''}
+              </p>
+              <p className="text-xs text-blue-500">Tap the bell icon to view them.</p>
+            </div>
+            <button onClick={() => setShowNotifications(true)}
+              className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-blue-700">
+              View
+            </button>
+          </div>
+        )}
+
+        {/* Tabs */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="border-b border-gray-100 overflow-x-auto">
             <nav className="flex">
-              {TABS.map(t=>(
-                <button key={t.id} onClick={()=>setActiveTab(t.id)}
+              {TABS.map(t => (
+                <button key={t.id} onClick={() => setActiveTab(t.id)}
                   className={`px-5 py-3.5 text-sm font-semibold whitespace-nowrap transition-colors
-                    ${activeTab===t.id?'border-b-2 border-green-600 text-green-600':'text-gray-500 hover:text-gray-700'}`}>
+                    ${activeTab === t.id ? 'border-b-2 border-green-600 text-green-600' : 'text-gray-500 hover:text-gray-700'}`}>
                   {t.label}
                 </button>
               ))}
@@ -579,102 +1008,118 @@ const DriverDashboard = () => {
           </div>
 
           <div className="p-5">
-            {/* TODAY'S SCHEDULE */}
-            {activeTab==='today' && (
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-gray-800">Today's Schedule</h3>
-                  <button onClick={()=>setShowIncident(true)}
-                    className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-800 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors font-medium">
-                    <FaExclamationTriangle size={10}/> Report Incident
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {deliveries.map(d=>(
-                    <div key={d.id}
-                      className={`rounded-xl border-2 p-4 transition-all
-                        ${d.status==='in-progress'?'border-green-400 bg-green-50':
-                          d.status==='completed'  ?'border-gray-100 bg-gray-50 opacity-80':
-                                                   'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm'}`}>
-                      <div className="flex flex-col md:flex-row justify-between items-start gap-3">
-                        <div className="flex items-start gap-3 flex-1">
-                          <div className={`p-2.5 rounded-xl shrink-0 ${
-                            d.status==='completed'  ?'bg-green-100':
-                            d.status==='in-progress'?'bg-yellow-100 animate-pulse':
-                                                     'bg-gray-100'}`}>
-                            {d.status==='completed'  ?<FaCheckCircle className="text-green-600"/>:
-                             d.status==='in-progress'?<FaClock className="text-yellow-600"/>:
-                                                      <FaCalendarAlt className="text-gray-500"/>}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-semibold text-gray-800">{d.location}</p>
-                              <span className="text-xs text-gray-400">{d.time}</span>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-0.5">{d.address}</p>
-                            <p className="text-xs text-gray-500">{d.amount}L · {d.recipient}</p>
-                            {d.notes && (
-                              <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-lg mt-1.5 inline-block max-w-full truncate">
-                                📋 {d.notes}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap shrink-0">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold
-                            ${d.status==='completed'  ?'bg-green-100 text-green-700':
-                              d.status==='in-progress'?'bg-yellow-100 text-yellow-700':
-                                                       'bg-gray-100 text-gray-600'}`}>
-                            {d.status==='in-progress'?'In Progress':d.status.charAt(0).toUpperCase()+d.status.slice(1)}
-                          </span>
-                          {d.status==='pending' && (
-                            <>
-                              <button onClick={()=>callRecipient(d.phone)}
-                                className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors" title="Call recipient">
-                                <FaPhone size={11}/>
-                              </button>
-                              <button onClick={()=>openMaps(d.lat, d.lng, d.location)}
-                                className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors" title="Navigate">
-                                <FaMapMarkedAlt size={11}/>
-                              </button>
-                              <button onClick={()=>startDelivery(d.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors shadow-sm">
-                                <FaPlay size={9}/> Start
-                              </button>
-                            </>
-                          )}
-                          {d.status==='in-progress' && (
-                            <>
-                              <button onClick={()=>callRecipient(d.phone)}
-                                className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100" title="Call">
-                                <FaPhone size={11}/>
-                              </button>
-                              <button onClick={()=>completeDelivery(d.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 shadow-sm">
-                                <FaCheck size={9}/> Complete
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            {/* Today's Schedule */}
+           {activeTab === 'today' && (
+  <div>
+    <div className="flex justify-between items-center mb-4">
+      <h3 className="font-bold text-gray-800">Today's Schedule</h3>
+      <button onClick={() => setShowIncident(true)}
+        className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-800 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors font-medium">
+        <FaExclamationTriangle size={10} /> Report Incident
+      </button>
+    </div>
+    <div className="space-y-3">
+      {deliveries.length === 0 && (
+        <div className="text-center py-10 text-gray-400">
+          <FaCalendarAlt className="text-4xl mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No deliveries scheduled for today</p>
+        </div>
+      )}
+      {deliveries.map(d => (
+        <div key={d.id || d._id}
+          className={`rounded-xl border-2 p-4 transition-all
+            ${d.status === 'in-progress' ? 'border-green-400 bg-green-50' :
+              d.status === 'completed'   ? 'border-gray-100 bg-gray-50 opacity-80' :
+              d.status === 'approved'    ? 'border-blue-300 bg-blue-50/30' :
+              'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm'}`}>
+          <div className="flex flex-col md:flex-row justify-between items-start gap-3">
+            <div className="flex items-start gap-3 flex-1">
+              <div className={`p-2.5 rounded-xl shrink-0 ${
+                d.status === 'completed'   ? 'bg-green-100' :
+                d.status === 'in-progress' ? 'bg-yellow-100 animate-pulse' :
+                d.status === 'approved'    ? 'bg-blue-100' :
+                'bg-gray-100'}`}>
+                {d.status === 'completed'   ? <FaCheckCircle className="text-green-600" /> :
+                 d.status === 'in-progress' ? <FaClock className="text-yellow-600" /> :
+                 d.status === 'approved'    ? <FaCalendarAlt className="text-blue-600" /> :
+                 <FaCalendarAlt className="text-gray-500" />}
               </div>
-            )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-gray-800">{d.location}</p>
+                  <span className="text-xs text-gray-400">{d.scheduledTime || d.time}</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">{d.address}</p>
+                <p className="text-xs text-gray-500">{d.amount}L · {d.recipient}</p>
+                {d.notes && (
+                  <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-lg mt-1.5 inline-block max-w-full truncate">
+                    📋 {d.notes}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold
+                ${d.status === 'completed'   ? 'bg-green-100 text-green-700' :
+                  d.status === 'in-progress' ? 'bg-yellow-100 text-yellow-700' :
+                  d.status === 'approved'    ? 'bg-blue-100 text-blue-700' :
+                  'bg-gray-100 text-gray-600'}`}>
+                {d.status === 'in-progress' ? 'In Progress' : 
+                 d.status === 'approved'    ? 'Approved' : 
+                 d.status.charAt(0).toUpperCase() + d.status.slice(1)}
+              </span>
+              
+              {/* Phone button - show for pending, approved, or in-progress */}
+              {(d.status === 'pending' || d.status === 'approved' || d.status === 'in-progress') && (
+                <button onClick={() => window.open(`tel:${d.phone}`)}
+                  className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                  <FaPhone size={11} />
+                </button>
+              )}
+              
+              {/* Map/Navigate button - show for pending or approved */}
+              {(d.status === 'pending' || d.status === 'approved') && (
+                <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`)}
+                  className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors">
+                  <FaMapMarkedAlt size={11} />
+                </button>
+              )}
+              
+              {/* Start button - for pending or approved */}
+              {(d.status === 'pending' || d.status === 'approved') && (
+                <button onClick={() => startDelivery(d.id || d._id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors shadow-sm">
+                  <FaPlay size={9} /> Start
+                </button>
+              )}
+              
+              {/* Complete button - for in-progress */}
+              {d.status === 'in-progress' && (
+                <button onClick={() => completeDelivery(d.id || d._id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 shadow-sm">
+                  <FaCheck size={9} /> Complete
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
-            {/* LIVE MAP */}
-            {activeTab==='map' && (
+            {/* Live Map */}
+            {activeTab === 'map' && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="font-bold text-gray-800">Live Route Map</h3>
                   <div className="flex gap-2">
-                    <button onClick={()=>setShowRoute(p=>!p)}
+                    <button onClick={() => setShowRoute(p => !p)}
                       className="text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium hover:bg-green-100">
-                      {showRoute?'Hide Route':'Show Route'}
+                      {showRoute ? 'Hide Route' : 'Show Route'}
                     </button>
                     {activeDelivery && (
-                      <button onClick={()=>openMaps(activeDelivery.lat, activeDelivery.lng, activeDelivery.location)}
+                      <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${activeDelivery.lat},${activeDelivery.lng}`)}
                         className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">
                         Open Google Maps
                       </button>
@@ -682,23 +1127,25 @@ const DriverDashboard = () => {
                   </div>
                 </div>
                 <div className="h-96 rounded-2xl overflow-hidden shadow-inner">
-                  <MapContainer center={[9.3265,8.9947]} zoom={14} style={{height:'100%',width:'100%'}}>
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap'/>
-                    {showRoute && <Polyline positions={routePoints} color="#10B981" weight={4} opacity={0.8}/>}
-                    <Marker position={[9.3265,8.9947]}><Popup><strong>📍 Current Position</strong><br/>Musa Ibrahim · TKR-002</Popup></Marker>
-                    {deliveries.filter(d=>d.status!=='completed').map(d=>(
-                      <Marker key={d.id} position={[d.lat, d.lng]}>
-                        <Popup>
-                          <strong>{d.location}</strong><br/>
-                          {d.address}<br/>
-                          {d.amount}L · {d.recipient}
-                        </Popup>
+                  <MapContainer center={[9.3265, 8.9947]} zoom={14} style={{ height: '100%', width: '100%' }}>
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
+                    {showRoute && <Polyline positions={[[9.3265, 8.9947], [9.3280, 8.9910], [9.3310, 8.9870]]} color="#10B981" weight={4} opacity={0.8} />}
+                    <Marker position={[9.3265, 8.9947]}>
+                      <Popup><strong>📍 Current Position</strong><br />{driverInfo.name} · {driverInfo.tanker}</Popup>
+                    </Marker>
+                    {deliveries.filter(d => d.status !== 'completed').map(d => (
+                      <Marker key={d.id || d._id} position={[d.lat || 9.3265, d.lng || 8.9947]}>
+                        <Popup><strong>{d.location}</strong><br />{d.address}<br />{d.amount}L · {d.recipient}</Popup>
                       </Marker>
                     ))}
                   </MapContainer>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
-                  {[['Current Stop',activeDelivery?.location||'None active'],['ETA',activeDelivery?.eta||'—'],['Stops Left',`${pendingToday+(activeDelivery?1:0)} remaining`]].map(([l,v])=>(
+                  {[
+                    ['Current Stop', activeDelivery?.location || 'None active'],
+                    ['ETA',          activeDelivery?.eta      || '—'],
+                    ['Stops Left',   `${pendingToday + (activeDelivery ? 1 : 0)} remaining`]
+                  ].map(([l, v]) => (
                     <div key={l} className="bg-green-50 p-3 rounded-xl border border-green-100">
                       <p className="text-xs text-green-600 font-medium">{l}</p>
                       <p className="text-sm font-bold text-gray-800 mt-1">{v}</p>
@@ -708,27 +1155,307 @@ const DriverDashboard = () => {
               </div>
             )}
 
-            {/* EARNINGS */}
-            {activeTab==='earnings' && (
-              <div>
-                <EarningsCard earnings={earnings}/>
-                <PerformanceCard perf={perf}/>
-                <VehicleHealth vehicle={vehicle}/>
+            {/* Earnings */}
+           {activeTab === 'earnings' && (
+              <div className="space-y-5">
+
+                {/* Period Selector */}
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-gray-800">My Earnings</h3>
+                  <div className="flex gap-1.5">
+                    {[
+                      { id: 'today', label: 'Today' },
+                      { id: 'week',  label: 'Week'  },
+                      { id: 'month', label: 'Month' },
+                    ].map(p => (
+                      <button key={p.id} onClick={() => setEarningsPeriod(p.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all
+                          ${earningsPeriod === p.id
+                            ? 'bg-green-600 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Main Earnings Card */}
+                <div className="bg-gradient-to-br from-green-600 to-emerald-700 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                  <div className="relative">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <p className="text-green-100 text-xs font-medium uppercase tracking-wide mb-1">
+                          {earningsPeriod === 'today' ? "Today's" : earningsPeriod === 'week' ? "This Week's" : "This Month's"} Earnings
+                        </p>
+                        <p className="text-4xl font-black">
+                          ₦{(earnings[earningsPeriod]?.total || 0).toLocaleString()}
+                        </p>
+                        <p className="text-green-100 text-sm mt-1">
+                          {earnings[earningsPeriod]?.deliveries || 0} deliveries · {earnings[earningsPeriod]?.km || 0} km
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setShowWithdrawal(true)}
+                        className="bg-white text-green-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-green-50 transition-colors shadow-lg flex items-center gap-1.5">
+                        <FaMoneyBillWave size={12} /> Withdraw
+                      </button>
+                    </div>
+
+                    {/* Breakdown */}
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { label: 'Base Pay', val: earnings[earningsPeriod]?.base  || 0, icon: '💼' },
+                        { label: 'Bonus',    val: earnings[earningsPeriod]?.bonus || 0, icon: '🎯' },
+                        { label: 'Tips',     val: earnings[earningsPeriod]?.tips  || 0, icon: '⭐' },
+                      ].map(({ label, val, icon }) => (
+                        <div key={label} className="bg-white/15 rounded-xl p-3 backdrop-blur-sm">
+                          <p className="text-xs text-green-100">{icon} {label}</p>
+                          <p className="font-black text-lg">₦{val.toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Commission Rate Card */}
+                <div className="bg-white rounded-xl shadow-md p-4 border border-green-100">
+                  <h4 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
+                    <span className="text-base">📊</span> Your Commission Rates
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: 'Rate per Liter',     val: `₦${commission.baseRatePerLiter}/L`,  color: 'bg-blue-50 text-blue-700'   },
+                      { label: 'Bonus per Delivery', val: `₦${commission.bonusPerDelivery}`,     color: 'bg-green-50 text-green-700' },
+                      { label: 'Average Tip',        val: `₦${commission.tipAverage}`,           color: 'bg-yellow-50 text-yellow-700'},
+                      { label: 'Commission %',       val: `${commission.commissionPercent}%`,     color: 'bg-purple-50 text-purple-700'},
+                    ].map(({ label, val, color }) => (
+                      <div key={label} className={`${color} rounded-xl p-3`}>
+                        <p className="text-xs opacity-70 font-medium">{label}</p>
+                        <p className="font-black text-base mt-0.5">{val}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 bg-gray-50 rounded-xl p-3">
+                    <p className="text-xs text-gray-500 font-medium">💡 Earnings per delivery (500L example)</p>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-xs text-gray-400">
+                        {commission.baseRatePerLiter} × 500L + {commission.bonusPerDelivery} bonus + {commission.tipAverage} tip
+                      </span>
+                      <span className="text-sm font-black text-green-600">
+                        ₦{(commission.baseRatePerLiter * 500 + commission.bonusPerDelivery + commission.tipAverage).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance */}
+                <div className="bg-white rounded-xl shadow-lg p-5">
+                  <h3 className="font-bold text-gray-800 text-base flex items-center gap-2 mb-4">
+                    <FaChartBar className="text-green-600" /> Performance
+                  </h3>
+                  <div className="grid gap-3">
+                    {[
+                      { label: 'Rating',          val: `${perf.rating}/5`, icon: <FaStar className="text-yellow-500" />,               bg: 'bg-yellow-50'  },
+                      { label: 'On-Time %',        val: `${perf.onTime}%`, icon: <FaClock className="text-blue-500" />,                 bg: 'bg-blue-50'    },
+                      { label: 'Total Deliveries', val: perf.total,        icon: <FaCheckCircle className="text-green-500" />,          bg: 'bg-green-50'   },
+                      { label: 'Incidents',        val: perf.incidents,    icon: <FaExclamationTriangle className="text-orange-400" />, bg: 'bg-orange-50'  },
+                    ].map(({ label, val, icon, bg }) => (
+                      <div key={label} className={`${bg} rounded-xl p-3 flex items-center gap-3`}>
+                        <div className="text-xl">{icon}</div>
+                        <div><p className="text-xs text-gray-500">{label}</p><p className="font-bold text-gray-800">{val}</p></div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-500">Monthly Target</span>
+                      <span className="font-semibold text-green-600">{perf.targetPct}%</span>
+                    </div>
+                    <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-700"
+                        style={{ width: `${perf.targetPct}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vehicle Health */}
+                <div className="bg-white rounded-xl shadow-lg p-5">
+                  <h3 className="font-bold text-gray-800 text-base flex items-center gap-2 mb-4">
+                    <FaWrench className="text-green-600" /> Vehicle Health
+                  </h3>
+                  <div className="grid gap-4">
+                    {[
+                      { label: 'Fuel',   val: vehicle.fuel,   color: vehicle.fuel   < 25 ? 'red' : vehicle.fuel   < 50 ? 'yellow' : 'green', icon: <FaGasPump />       },
+                      { label: 'Engine', val: vehicle.engine, color: vehicle.engine > 80 ? 'green' : vehicle.engine > 50 ? 'yellow' : 'red',  icon: <FaTachometerAlt /> },
+                      { label: 'Tyres',  val: vehicle.tyres,  color: vehicle.tyres  > 70 ? 'green' : vehicle.tyres  > 40 ? 'yellow' : 'red',  icon: <FaTruck />         },
+                      { label: 'Oil',    val: vehicle.oil,    color: vehicle.oil    > 60 ? 'green' : vehicle.oil    > 30 ? 'yellow' : 'red',  icon: <FaOilCan />        },
+                    ].map(({ label, val, color, icon }) => (
+                      <div key={label}>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-xs text-gray-500 flex items-center gap-1">{icon} {label}</span>
+                          <span className={`text-xs font-bold ${color==='green'?'text-green-600':color==='yellow'?'text-yellow-600':'text-red-600'}`}>{val}%</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full ${color==='green'?'bg-green-500':color==='yellow'?'bg-yellow-500':'bg-red-500'} rounded-full transition-all duration-700`}
+                            style={{ width: `${val}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Withdrawal Modal */}
+                {showWithdrawal && (
+                  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-6">
+                      <div className="flex justify-between items-center mb-5">
+                        <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                          <FaMoneyBillWave className="text-green-600" /> Withdraw Earnings
+                        </h3>
+                        <button onClick={() => setShowWithdrawal(false)} className="text-gray-400 hover:text-gray-700">✕</button>
+                      </div>
+
+                      {/* Available Balance */}
+                      <div className="bg-green-50 border border-green-100 rounded-xl p-4 mb-5">
+                        <p className="text-xs text-gray-500 font-medium">Available Balance</p>
+                        <p className="text-3xl font-black text-green-600">
+                          ₦{(earnings.month?.total || 0).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">Based on this month's earnings</p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs text-gray-500 font-medium mb-1 block">Amount to Withdraw (₦)</label>
+                          <input
+                            type="number"
+                            value={withdrawAmount}
+                            onChange={e => setWithdrawAmount(e.target.value)}
+                            placeholder="Enter amount"
+                            max={earnings.month?.total || 0}
+                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                          />
+                          {/* Quick amount buttons */}
+                          <div className="flex gap-2 mt-2">
+                            {[5000, 10000, 20000].map(amt => (
+                              <button key={amt} onClick={() => setWithdrawAmount(String(amt))}
+                                className="flex-1 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-green-50 hover:text-green-700 transition-colors">
+                                ₦{(amt/1000).toFixed(0)}K
+                              </button>
+                            ))}
+                            <button onClick={() => setWithdrawAmount(String(earnings.month?.total || 0))}
+                              className="flex-1 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-green-50 hover:text-green-700 transition-colors">
+                              Max
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs text-gray-500 font-medium mb-1 block">Bank Name</label>
+                          <select
+                            value={withdrawBank}
+                            onChange={e => setWithdrawBank(e.target.value)}
+                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none">
+                            <option value="">Select bank</option>
+                            {['Access Bank','First Bank','GT Bank','UBA','Zenith Bank','Fidelity Bank','FCMB','Sterling Bank','Polaris Bank','Wema Bank','Opay','Palmpay','Kuda Bank'].map(b => (
+                              <option key={b} value={b}>{b}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-xs text-gray-500 font-medium mb-1 block">Account Number</label>
+                          <input
+                            type="text"
+                            value={withdrawAccount}
+                            onChange={e => setWithdrawAccount(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                            placeholder="10-digit account number"
+                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                          />
+                        </div>
+
+                        {/* Summary */}
+                        {withdrawAmount && withdrawBank && withdrawAccount.length === 10 && (
+                          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                            <p className="font-bold mb-1">Withdrawal Summary</p>
+                            <div className="flex justify-between"><span>Amount:</span><span className="font-bold">₦{Number(withdrawAmount).toLocaleString()}</span></div>
+                            <div className="flex justify-between"><span>Bank:</span><span className="font-bold">{withdrawBank}</span></div>
+                            <div className="flex justify-between"><span>Account:</span><span className="font-bold">{withdrawAccount}</span></div>
+                            <div className="flex justify-between mt-1 pt-1 border-t border-blue-200">
+                              <span>Processing fee:</span><span className="font-bold text-orange-600">₦50</span>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex gap-3">
+                          <button onClick={() => { setShowWithdrawal(false); setWithdrawAmount(''); setWithdrawBank(''); setWithdrawAccount(''); }}
+                            className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600 text-sm font-medium hover:bg-gray-50">
+                            Cancel
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!withdrawAmount || !withdrawBank || withdrawAccount.length !== 10) {
+                                addToast('error', 'Please fill all fields correctly');
+                                return;
+                              }
+                              if (Number(withdrawAmount) > (earnings.month?.total || 0)) {
+                                addToast('error', 'Amount exceeds available balance');
+                                return;
+                              }
+                              if (Number(withdrawAmount) < 1000) {
+                                addToast('error', 'Minimum withdrawal is ₦1,000');
+                                return;
+                              }
+                              try {
+                                setWithdrawing(true);
+                                const token = localStorage.getItem('token');
+                                await axios.post(`${API_URL}/driver/withdrawal`, {
+                                  amount:         Number(withdrawAmount),
+                                  bankName:       withdrawBank,
+                                  accountNumber:  withdrawAccount,
+                                }, { headers: { Authorization: `Bearer ${token}` } });
+                                addToast('success', 'Withdrawal request submitted!', 'Your payment will be processed within 24 hours.');
+                                setShowWithdrawal(false);
+                                setWithdrawAmount(''); setWithdrawBank(''); setWithdrawAccount('');
+                              } catch (err) {
+                                addToast('error', 'Withdrawal failed', err.response?.data?.message || 'Please try again.');
+                              } finally {
+                                setWithdrawing(false);
+                              }
+                            }}
+                            disabled={withdrawing || !withdrawAmount || !withdrawBank || withdrawAccount.length !== 10}
+                            className="flex-1 py-2.5 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                            {withdrawing ? <><FaSpinner className="animate-spin" /> Processing...</> : '💸 Withdraw'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* HISTORY */}
-            {activeTab==='history' && (
+            {/* History */}
+            {activeTab === 'history' && (
               <div>
-                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><FaHistory className="text-green-600"/>Delivery History</h3>
+                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><FaHistory className="text-green-600" />Delivery History</h3>
                 <div className="space-y-3">
-                  {[...historyDeliveries].map(d=>(
-                    <div key={d.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                  {historyDeliveries.length === 0 && (
+                    <div className="text-center py-10 text-gray-400">
+                      <FaHistory className="text-4xl mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">No delivery history yet</p>
+                    </div>
+                  )}
+                  {historyDeliveries.map(d => (
+                    <div key={d.id || d._id} className="flex justify-between items-center p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="bg-green-100 p-2 rounded-lg"><FaCheckCircle className="text-green-600"/></div>
+                        <div className="bg-green-100 p-2 rounded-lg"><FaCheckCircle className="text-green-600" /></div>
                         <div>
                           <p className="font-semibold text-gray-800 text-sm">{d.location}</p>
-                          <p className="text-xs text-gray-500">{d.date} · {d.time}</p>
+                          <p className="text-xs text-gray-500">
+                            {d.date ? new Date(d.date).toLocaleDateString() : d.createdAt?.split('T')[0]} · {d.scheduledTime || d.time}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -739,52 +1466,22 @@ const DriverDashboard = () => {
                   ))}
                 </div>
                 <div className="mt-4 p-4 bg-green-50 rounded-xl text-center border border-green-100">
-                  <p className="text-sm text-green-700 font-semibold">Total this month: <span className="text-green-800 font-black">72 deliveries · 4,200L water</span></p>
+                  <p className="text-sm text-green-700 font-semibold">
+                    Total this month: <span className="text-green-800 font-black">{perf.total} deliveries · ₦{earnings.month.total.toLocaleString()} earned</span>
+                  </p>
                 </div>
               </div>
             )}
 
-            {/* PROFILE */}
-            {activeTab==='profile' && (
-              <div>
-                <div className="flex items-center gap-4 mb-6 p-5 bg-gradient-to-r from-green-600 to-emerald-700 rounded-2xl text-white">
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-2xl font-black">MI</div>
-                  <div>
-                    <p className="text-xl font-black">{driverInfo.name}</p>
-                    <p className="text-green-100 text-sm">{driverInfo.id} · {driverInfo.tanker}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      {[1,2,3,4,5].map(i=><FaStar key={i} className={`text-xs ${i<=Math.floor(perf.rating)?'text-yellow-300':'text-white/30'}`}/>)}
-                      <span className="text-xs text-green-100 ml-1">{perf.rating} rating</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3 mb-5">
-                  {[
-                    {icon:<FaPhone/>,  label:'Phone',        val:driverInfo.phone},
-                    {icon:<FaEnvelope/>,label:'Email',       val:driverInfo.email},
-                    {icon:<FaTruck/>,  label:'Assigned Tanker', val:driverInfo.tanker},
-                    {icon:<FaKey/>,    label:'Driver ID',     val:driverInfo.id},
-                    {icon:<FaShieldAlt/>,label:'License Exp', val:'Dec 2026'},
-                  ].map(({icon,label,val})=>(
-                    <div key={label} className="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                      <div className="text-green-600 w-5 text-center shrink-0">{icon}</div>
-                      <div className="flex-1 min-w-0"><p className="text-xs text-gray-500">{label}</p><p className="font-semibold text-gray-800 text-sm truncate">{val}</p></div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="grid  gap-3">
-                  <button onClick={()=>setShowSettings(true)}
-                    className="flex items-center justify-center gap-2 py-3 bg-green-50 text-green-700 rounded-xl text-sm font-semibold hover:bg-green-100 border border-green-200 transition-colors">
-                    <FaCog/> Settings
-                  </button>
-                  <button onClick={()=>addToast('info','Support contacted','Our team will respond within 30 minutes.')}
-                    className="flex items-center justify-center gap-2 py-3 bg-blue-50 text-blue-700 rounded-xl text-sm font-semibold hover:bg-blue-100 border border-blue-200 transition-colors">
-                    <FaHeadset/> Support
-                  </button>
-                </div>
-              </div>
+            {/* Profile */}
+            {activeTab === 'profile' && (
+              <ProfileTab
+                driverInfo={driverInfo}
+                perf={perf}
+                API_URL={API_URL}
+                addToast={addToast}
+                fetchDriverData={fetchDriverData}
+              />
             )}
           </div>
         </div>

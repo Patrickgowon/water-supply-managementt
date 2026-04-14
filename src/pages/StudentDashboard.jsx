@@ -1,15 +1,6 @@
 // src/pages/StudentDashboard.jsx
-// ⚠️  SETUP REQUIRED: Replace 'pk_test_xxx...' with your real Paystack PUBLIC key
-// Get your key at: https://dashboard.paystack.com/#/settings/developers
-//
-// Required dependencies (already in package.json if using standard setup):
-//   npm install react-icons chart.js react-chartjs-2 react-leaflet leaflet
-//
-// Optional .env file (create at project root):
-//   VITE_PAYSTACK_PUBLIC_KEY=pk_test_yourkey
-//   VITE_APP_NAME=AquaStudent
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   FaTint, FaTruck, FaBell, FaUserCircle, FaClock,
   FaCheckCircle, FaCalendarAlt, FaMapMarkerAlt,
@@ -17,7 +8,8 @@ import {
   FaPlus, FaCreditCard, FaMoneyBillWave, FaMapMarkedAlt,
   FaStopwatch, FaCog, FaToggleOn, FaToggleOff,
   FaTimes, FaEdit, FaSave, FaChevronRight,
-  FaShieldAlt, FaTrash, FaKey, FaSun, FaMoon,
+  FaShieldAlt, FaTrash, FaKey, FaSignOutAlt, FaSpinner,
+  FaCheck, FaExclamationCircle, FaInfoCircle, FaTrashAlt
 } from 'react-icons/fa';
 import { MdOutlineWaterDrop, MdOutlinePayment, MdNotifications, MdSecurity } from 'react-icons/md';
 import { Line } from 'react-chartjs-2';
@@ -25,71 +17,23 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement,
   LineElement, Title, Tooltip, Legend, Filler
 } from 'chart.js';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+import axios from 'axios';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
-// ─── PAYSTACK HOOK ────────────────────────────────────────────────────────────
-const usePaystack = () => {
-  const loadScript = useCallback(() => {
-    return new Promise((resolve) => {
-      if (window.PaystackPop) { resolve(true); return; }
-      const script = document.createElement('script');
-      script.src = 'https://js.paystack.co/v1/inline.js';
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.head.appendChild(script);
-    });
-  }, []);
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const PAYSTACK_PUBLIC_KEY = 'pk_test_bed221a6bf478e70a90fe3238af9d4162bfa99e5';
 
-  const initializePayment = useCallback(async ({ email, amount, planName, onSuccess, onClose }) => {
-    const loaded = await loadScript();
-    if (!loaded || !window.PaystackPop) {
-      return { error: 'Paystack failed to load. Check your internet connection.' };
-    }
-    const paystackKey = import.meta?.env?.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
-    const handler = window.PaystackPop.setup({
-      key: paystackKey,
-      email,
-      amount: amount * 100,
-      currency: 'NGN',
-      ref: `AQUA_${Date.now()}_${Math.floor(Math.random() * 1000000)}`,
-      metadata: {
-        plan: planName,
-        custom_fields: [{ display_name: 'Plan', variable_name: 'plan', value: planName }]
-      },
-      callback: (response) => onSuccess(response),
-      onClose: () => onClose && onClose(),
-    });
-    handler.openIframe();
-    return { error: null };
-  }, [loadScript]);
-
-  return { initializePayment };
-};
-
-// ─── TOAST SYSTEM ────────────────────────────────────────────────────────────
+// ─── TOAST ────────────────────────────────────────────────────────────────────
 const Toast = ({ toasts, removeToast }) => (
   <div className="fixed top-4 right-4 z-[9999] space-y-2 pointer-events-none">
     {toasts.map((t) => (
-      <div
-        key={t.id}
-        style={{ animation: 'slideInRight 0.35s cubic-bezier(.22,.68,0,1.2)' }}
+      <div key={t.id}
         className={`flex items-start gap-3 px-4 py-3 rounded-xl shadow-2xl text-white text-sm font-medium min-w-[280px] max-w-sm pointer-events-auto
           ${t.type === 'success' ? 'bg-gradient-to-r from-green-500 to-emerald-600' :
             t.type === 'error'   ? 'bg-gradient-to-r from-red-500 to-rose-600' :
             t.type === 'info'    ? 'bg-gradient-to-r from-blue-500 to-indigo-600' :
-                                   'bg-gradient-to-r from-yellow-500 to-orange-500'}`}
-      >
+                                   'bg-gradient-to-r from-yellow-500 to-orange-500'}`}>
         <span className="text-xl mt-0.5 shrink-0">
           {t.type === 'success' ? '✅' : t.type === 'error' ? '❌' : t.type === 'info' ? 'ℹ️' : '⚠️'}
         </span>
@@ -114,490 +58,576 @@ const useToast = () => {
   return { toasts, addToast, removeToast };
 };
 
-// ─── PLAN PRICES (kobo → NGN) ─────────────────────────────────────────────────
-const PLAN_PRICES = { plan1: 5000, plan2: 10000, plan3: 18000 };
+// ─── NOTIFICATIONS PANEL ──────────────────────────────────────────────────────
+const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearAll }) => {
+  const ref = useRef(null);
 
-// ─── PAYMENT MODAL ────────────────────────────────────────────────────────────
-const PaymentModal = ({ show, onClose, selectedPlan, userEmail, addToast, onPaymentSuccess }) => {
-  const { initializePayment } = usePaystack();
-  const [step, setStep] = useState('select');   // select | confirm | processing | result
-  const [method, setMethod] = useState(null);
-  const [result, setResult] = useState(null);
-
-  // Reset when reopened
   useEffect(() => {
-    if (show) { setStep('select'); setMethod(null); setResult(null); }
-  }, [show]);
-
-  const handlePay = async () => {
-    if (!selectedPlan) return;
-    setStep('processing');
-
-    if (method === 'card') {
-      const { error } = await initializePayment({
-        email: userEmail || 'student@university.edu.ng',
-        amount: PLAN_PRICES[selectedPlan.id] || 5000,
-        planName: selectedPlan.name,
-        onSuccess: (response) => {
-          setResult({ success: true, ref: response.reference });
-          setStep('result');
-          addToast('success', 'Payment Successful! 🎉', `Ref: ${response.reference}`);
-          onPaymentSuccess({ plan: selectedPlan, ref: response.reference, method: 'Card' });
-        },
-        onClose: () => {
-          setStep('confirm');
-          addToast('info', 'Payment window closed', 'Transaction was not completed.');
-        },
-      });
-      if (error) {
-        setResult({ success: false, message: error });
-        setStep('result');
-        addToast('error', 'Payment Error', error);
-      }
-    } else {
-      // Simulated bank/USSD for demo
-      await new Promise(r => setTimeout(r, 3200));
-      const ok = Math.random() > 0.15;
-      const ref = `AQUA_${Date.now()}`;
-      if (ok) {
-        setResult({ success: true, ref });
-        setStep('result');
-        addToast('success', 'Payment Confirmed! 🎉', `Ref: ${ref}`);
-        onPaymentSuccess({ plan: selectedPlan, ref, method: method === 'bank' ? 'Bank Transfer' : 'USSD' });
-      } else {
-        setResult({ success: false, message: 'Transaction declined. Please try a different method or contact your bank.' });
-        setStep('result');
-        addToast('error', 'Payment Failed', 'Transaction was declined.');
-      }
-    }
-  };
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    if (show) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [show, onClose]);
 
   if (!show) return null;
 
-  const METHODS = [
-    { id: 'card', emoji: '💳', bg: 'bg-blue-100', icon: <FaCreditCard className="text-blue-600" />, label: 'Credit / Debit Card', sub: 'Visa · Mastercard · Verve — Instant' },
-    { id: 'bank', emoji: '🏦', bg: 'bg-green-100', icon: <FaMoneyBillWave className="text-green-600" />, label: 'Bank Transfer', sub: 'Direct bank transfer' },
-    { id: 'ussd', emoji: '📱', bg: 'bg-yellow-100', icon: <MdOutlinePayment className="text-yellow-600 text-xl" />, label: 'USSD', sub: 'Pay via USSD code' },
-  ];
+  const getIcon = (type) => {
+    if (type === 'success') return <FaCheckCircle className="text-green-500 shrink-0 mt-0.5" />;
+    if (type === 'warning') return <FaExclamationCircle className="text-yellow-500 shrink-0 mt-0.5" />;
+    if (type === 'error')   return <FaExclamationCircle className="text-red-500 shrink-0 mt-0.5" />;
+    return <FaInfoCircle className="text-blue-500 shrink-0 mt-0.5" />;
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className={`p-5 text-white ${result?.success ? 'bg-gradient-to-r from-green-500 to-emerald-600' : result && !result.success ? 'bg-gradient-to-r from-red-500 to-rose-600' : 'bg-gradient-to-r from-green-600 to-emerald-700'}`}>
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-xl font-bold">
-                {step === 'result' && result?.success ? '🎉 Payment Successful' :
-                 step === 'result'                    ? '❌ Payment Failed' :
-                 step === 'processing'               ? '⏳ Processing Payment…' :
-                 step === 'confirm'                  ? '✅ Confirm & Pay' :
-                                                       '💳 Choose Payment Method'}
-              </h3>
-              {selectedPlan && step !== 'result' && (
-                <p className="text-white/80 text-sm mt-0.5">{selectedPlan.name} — {selectedPlan.price}/{selectedPlan.period}</p>
-              )}
-            </div>
-            {step !== 'processing' && (
-              <button onClick={onClose} className="text-white/70 hover:text-white text-xl leading-none">✕</button>
-            )}
+    <div ref={ref} className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+        <h3 className="font-bold text-gray-800 text-sm">Notifications</h3>
+        <div className="flex items-center gap-2">
+          {notifications.some(n => !n.read) && (
+            <button onClick={onMarkRead} className="text-xs text-green-600 hover:text-green-700 font-medium">
+              Mark all read
+            </button>
+          )}
+          {notifications.length > 0 && (
+            <button onClick={onClearAll} className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+              <FaTrashAlt size={10} /> Clear
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="max-h-80 overflow-y-auto">
+        {notifications.length === 0 ? (
+          <div className="py-8 text-center">
+            <FaBell className="text-gray-300 text-3xl mx-auto mb-2" />
+            <p className="text-sm text-gray-400">No notifications</p>
           </div>
-        </div>
-
-        <div className="p-6">
-          {/* SELECT METHOD */}
-          {step === 'select' && (
-            <div className="space-y-3">
-              {METHODS.map(m => (
-                <button key={m.id} onClick={() => { setMethod(m.id); setStep('confirm'); }}
-                  className="w-full p-4 border-2 border-gray-100 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all flex items-center gap-3 group text-left">
-                  <div className={`w-11 h-11 ${m.bg} rounded-full flex items-center justify-center text-lg shrink-0`}>{m.icon}</div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-800">{m.label}</p>
-                    <p className="text-xs text-gray-500">{m.sub}</p>
-                  </div>
-                  <FaChevronRight className="text-gray-300 group-hover:text-green-600 transition-colors" />
-                </button>
-              ))}
-              {!selectedPlan && (
-                <p className="text-xs text-orange-500 text-center pt-1">⚠️ No plan selected — go to Payments tab to select one</p>
-              )}
+        ) : (
+          notifications.map(n => (
+            <div key={n.id} className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!n.read ? 'bg-blue-50/40' : ''}`}>
+              {getIcon(n.type)}
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs font-semibold text-gray-800 ${!n.read ? 'font-bold' : ''}`}>{n.title}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
+                <p className="text-[10px] text-gray-400 mt-1">{n.time}</p>
+              </div>
+              {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-1" />}
             </div>
-          )}
-
-          {/* CONFIRM */}
-          {step === 'confirm' && selectedPlan && (
-            <div className="space-y-4">
-              <div className="bg-green-50 rounded-xl p-4 border border-green-100">
-                <p className="text-xs text-gray-500 uppercase tracking-wide mb-2 font-semibold">Order Summary</p>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-bold text-gray-800 text-lg">{selectedPlan.name}</p>
-                    <p className="text-sm text-gray-500">{selectedPlan.water} · {selectedPlan.deliveries}</p>
-                  </div>
-                  <p className="text-2xl font-black text-green-600">{selectedPlan.price}</p>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
-                <span className="text-2xl">{METHODS.find(m => m.id === method)?.emoji}</span>
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">{METHODS.find(m => m.id === method)?.label}</p>
-                  <p className="text-xs text-gray-500">Selected payment method</p>
-                </div>
-                <button onClick={() => setStep('select')} className="ml-auto text-xs text-green-600 hover:underline font-medium">Change</button>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <FaShieldAlt className="text-green-500" />
-                <span>Payments secured by Paystack · 256-bit SSL</span>
-              </div>
-
-              <div className="flex gap-3 pt-1">
-                <button onClick={() => setStep('select')} className="flex-1 py-3 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium text-sm">Back</button>
-                <button onClick={handlePay}
-                  className="flex-1 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg shadow-green-200 text-sm">
-                  Pay {selectedPlan.price}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* PROCESSING */}
-          {step === 'processing' && (
-            <div className="py-12 text-center">
-              <div className="relative w-20 h-20 mx-auto mb-5">
-                <div className="absolute inset-0 border-4 border-green-100 rounded-full"></div>
-                <div className="absolute inset-0 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center text-3xl">
-                  {METHODS.find(m => m.id === method)?.emoji}
-                </div>
-              </div>
-              <p className="text-lg font-bold text-gray-800">Processing Payment…</p>
-              <p className="text-sm text-gray-500 mt-1">Please wait. Do not close this window.</p>
-              {method !== 'card' && (
-                <div className="mt-4 text-xs text-gray-400 bg-gray-50 rounded-xl p-3">
-                  Verifying transaction with your bank...
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* RESULT */}
-          {step === 'result' && (
-            <div className="py-6 text-center">
-              {result?.success ? (
-                <>
-                  <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-5xl">✅</div>
-                  <p className="text-2xl font-black text-gray-800 mb-1">Payment Successful!</p>
-                  <p className="text-sm text-gray-500">Your <strong>{selectedPlan?.name}</strong> is now active</p>
-                  <div className="mt-4 bg-gray-50 rounded-xl p-3 text-left">
-                    <p className="text-xs text-gray-500 mb-1">Transaction Reference</p>
-                    <p className="font-mono text-xs font-bold text-gray-700 break-all">{result.ref}</p>
-                  </div>
-                  <button onClick={onClose}
-                    className="mt-5 w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:from-green-700 hover:to-emerald-700 transition-all">
-                    Continue to Dashboard
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-5xl">❌</div>
-                  <p className="text-2xl font-black text-gray-800 mb-1">Payment Failed</p>
-                  <p className="text-sm text-gray-500 mt-1 mb-4">{result?.message}</p>
-                  <div className="flex gap-3">
-                    <button onClick={onClose} className="flex-1 py-3 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium text-sm">Cancel</button>
-                    <button onClick={() => { setStep('select'); setResult(null); }}
-                      className="flex-1 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold text-sm">
-                      Try Again
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+          ))
+        )}
       </div>
     </div>
   );
 };
 
-// ─── SETTINGS PANEL ───────────────────────────────────────────────────────────
-const SettingsPanel = ({ show, onClose, user, settings, setSettings, addToast }) => {
-  const [section, setSection] = useState('notifications');
-  const [editProfile, setEditProfile] = useState(false);
-  const [profileData, setProfileData] = useState({ phone: user?.phone || '', email: user?.email || '' });
-  const [pwData, setPwData] = useState({ current: '', newPw: '', confirm: '' });
-
+// ─── SETTINGS MODAL ───────────────────────────────────────────────────────────
+const SettingsModal = ({ show, onClose, notifSettings, setNotifSettings, onSave }) => {
   if (!show) return null;
 
-  const toggle = (key) => {
-    const next = !settings[key];
-    setSettings(p => ({ ...p, [key]: next }));
-    const label = key.replace(/([A-Z])/g, ' $1').toLowerCase();
-    addToast('info', `${label.charAt(0).toUpperCase() + label.slice(1)} ${next ? 'enabled' : 'disabled'}`);
-  };
+  const toggle = (key) => setNotifSettings(p => ({ ...p, [key]: !p[key] }));
 
-  const saveProfile = () => { setEditProfile(false); addToast('success', 'Profile updated!'); };
-
-  const changePassword = () => {
-    if (!pwData.current)        return addToast('error', 'Enter your current password');
-    if (pwData.newPw.length < 8) return addToast('error', 'New password must be ≥ 8 characters');
-    if (pwData.newPw !== pwData.confirm) return addToast('error', 'Passwords do not match');
-    setPwData({ current: '', newPw: '', confirm: '' });
-    addToast('success', 'Password changed successfully!');
-  };
-
-  const ToggleRow = ({ label, sub, settingKey }) => (
+  const TogRow = ({ label, sub, k }) => (
     <div className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
       <div>
         <p className="text-sm font-medium text-gray-800">{label}</p>
         {sub && <p className="text-xs text-gray-500 mt-0.5">{sub}</p>}
       </div>
-      <button onClick={() => toggle(settingKey)} className="transition-transform active:scale-90 ml-4 shrink-0">
-        {settings[settingKey]
+      <button onClick={() => toggle(k)} className="active:scale-90 transition-transform ml-4 shrink-0">
+        {notifSettings[k]
           ? <FaToggleOn className="text-3xl text-green-500" />
           : <FaToggleOff className="text-3xl text-gray-300" />}
       </button>
     </div>
   );
 
-  const SECTIONS = [
-    { id: 'notifications', icon: '🔔', label: 'Notifications' },
-    { id: 'appearance',    icon: '🎨', label: 'Appearance' },
-    { id: 'security',      icon: '🔒', label: 'Security' },
-    { id: 'profile',       icon: '👤', label: 'Edit Profile' },
-    { id: 'danger',        icon: '⚠️', label: 'Danger Zone' },
-  ];
-
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex max-h-[90vh]">
-        {/* Sidebar */}
-        <div className="w-52 bg-gray-50 border-r border-gray-100 p-4 flex flex-col shrink-0">
-          <div className="flex items-center gap-2 mb-5">
-            <FaCog className="text-green-600" />
-            <span className="font-bold text-gray-800">Settings</span>
-          </div>
-          {SECTIONS.map(s => (
-            <button key={s.id} onClick={() => setSection(s.id)}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium mb-1 text-left transition-all
-                ${section === s.id ? 'bg-green-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-200'}`}>
-              <span>{s.icon}</span>{s.label}
-            </button>
-          ))}
-          <button onClick={onClose}
-            className="mt-auto flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-xl">
-            <FaTimes size={12} /> Close
-          </button>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-xl font-bold text-gray-800">⚙️ Preferences</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-lg">✕</button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {section === 'notifications' && (
-            <div>
-              <h4 className="font-bold text-gray-800 text-lg mb-4">Notification Preferences</h4>
-              <ToggleRow label="Email Notifications" sub="Updates & receipts via email" settingKey="emailNotif" />
-              <ToggleRow label="SMS Notifications" sub="Text alerts on your phone" settingKey="smsNotif" />
-              <ToggleRow label="Push Notifications" sub="Browser push alerts" settingKey="pushNotif" />
-              <ToggleRow label="Delivery Reminders" sub="1 hour before scheduled delivery" settingKey="deliveryReminders" />
-              <ToggleRow label="Payment Reminders" sub="3 days before payment due" settingKey="paymentReminders" />
-              <ToggleRow label="Tanker ETA Alerts" sub="When tanker is 10 minutes away" settingKey="etaAlerts" />
-            </div>
-          )}
+        {/* Notifications */}
+        <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-2">🔔 Notifications</p>
+        <TogRow label="Delivery Alerts"       sub="Notify when tanker is on the way"     k="deliveryAlerts" />
+        <TogRow label="Payment Reminders"     sub="Alert before payment is due"          k="paymentReminders" />
+        <TogRow label="Request Updates"       sub="Status changes on your requests"      k="requestUpdates" />
+        <TogRow label="Email Notifications"   sub="Receive updates via email"            k="emailNotifications" />
+        <TogRow label="SMS Alerts"            sub="Receive SMS for urgent updates"       k="smsAlerts" />
 
-          {section === 'appearance' && (
-            <div>
-              <h4 className="font-bold text-gray-800 text-lg mb-4">Appearance</h4>
-              <ToggleRow label="Dark Mode" sub="Switch to dark theme" settingKey="darkMode" />
-              <ToggleRow label="Compact View" sub="Reduce spacing for more content" settingKey="compactView" />
-              <ToggleRow label="Sound Effects" sub="Play sounds on actions" settingKey="soundEffects" />
-              <div className="mt-5 pt-4 border-t border-gray-100">
-                <p className="text-sm font-semibold text-gray-700 mb-3">Accent Color</p>
-                <div className="flex gap-3">
-                  {[
-                    { color: '#10B981', label: 'Green' },
-                    { color: '#3B82F6', label: 'Blue' },
-                    { color: '#8B5CF6', label: 'Purple' },
-                    { color: '#F59E0B', label: 'Amber' },
-                    { color: '#EF4444', label: 'Red' },
-                  ].map(({ color, label }) => (
-                    <button key={color} title={label}
-                      onClick={() => addToast('success', `Accent changed to ${label}`)}
-                      className="w-9 h-9 rounded-full border-2 border-white shadow-md hover:scale-110 transition-transform"
-                      style={{ background: color }} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Preferences */}
+        <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mt-5 mb-2">🎛️ Preferences</p>
+        <TogRow label="Auto-Renew Plan"       sub="Automatically renew water plan"       k="autoRenew" />
+        <TogRow label="Show Consumption Tips" sub="Water saving tips on dashboard"       k="consumptionTips" />
+        <TogRow label="Dark Mode"             sub="Switch to dark theme (coming soon)"   k="darkMode" />
 
-          {section === 'security' && (
-            <div>
-              <h4 className="font-bold text-gray-800 text-lg mb-4">Security</h4>
-              <ToggleRow label="Two-Factor Authentication" sub="Extra layer of protection" settingKey="twoFA" />
-              <ToggleRow label="Login Alerts" sub="Notify on new sign-ins" settingKey="loginAlerts" />
-              <div className="mt-5 pt-4 border-t border-gray-100">
-                <p className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <FaKey className="text-green-600" /> Change Password
-                </p>
-                <div className="space-y-3">
-                  {[['Current Password', 'current'], ['New Password', 'newPw'], ['Confirm New Password', 'confirm']].map(([label, key]) => (
-                    <div key={key}>
-                      <label className="text-xs text-gray-500 mb-1 block font-medium">{label}</label>
-                      <input type="password" value={pwData[key]} onChange={e => setPwData(p => ({ ...p, [key]: e.target.value }))}
-                        placeholder={key === 'newPw' ? 'Min. 8 characters' : ''}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent" />
-                    </div>
-                  ))}
-                  <button onClick={changePassword}
-                    className="w-full py-2.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 text-sm transition-colors">
-                    Update Password
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {section === 'profile' && (
-            <div>
-              <div className="flex justify-between items-center mb-5">
-                <h4 className="font-bold text-gray-800 text-lg">Edit Profile</h4>
-                <button onClick={() => setEditProfile(p => !p)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                    ${editProfile ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'}`}>
-                  {editProfile ? <><FaTimes size={11} /> Cancel</> : <><FaEdit size={11} /> Edit</>}
-                </button>
-              </div>
-              <div className="space-y-4">
-                {[['Email Address', 'email', 'email'], ['Phone Number', 'phone', 'tel']].map(([label, key, type]) => (
-                  <div key={key}>
-                    <label className="text-xs text-gray-500 mb-1 block font-medium">{label}</label>
-                    <input type={type} value={profileData[key]} disabled={!editProfile}
-                      onChange={e => setProfileData(p => ({ ...p, [key]: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors" />
-                  </div>
-                ))}
-                {editProfile && (
-                  <button onClick={saveProfile}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 transition-colors">
-                    <FaSave size={13} /> Save Changes
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {section === 'danger' && (
-            <div>
-              <h4 className="font-bold text-red-600 text-lg mb-5">⚠️ Danger Zone</h4>
-              <div className="space-y-3">
-                {[
-                  { label: 'Delete All Delivery History', sub: 'Permanently remove all past delivery records', btn: 'Delete History', color: 'orange' },
-                  { label: 'Cancel Active Subscription', sub: 'Plan ends at current billing period', btn: 'Cancel Plan', color: 'orange' },
-                  { label: 'Delete Account', sub: 'Permanently delete account and all data. Irreversible.', btn: 'Delete Account', color: 'red' },
-                ].map(({ label, sub, btn, color }) => (
-                  <div key={label} className={`border rounded-xl p-4 flex justify-between items-start
-                    ${color === 'red' ? 'border-red-200 bg-red-50' : 'border-orange-200 bg-orange-50'}`}>
-                    <div className="flex-1 mr-4">
-                      <p className={`text-sm font-semibold ${color === 'red' ? 'text-red-800' : 'text-orange-800'}`}>{label}</p>
-                      <p className={`text-xs mt-0.5 ${color === 'red' ? 'text-red-600' : 'text-orange-600'}`}>{sub}</p>
-                    </div>
-                    <button
-                      onClick={() => addToast('error', `${btn} requires email confirmation`, 'An email has been sent to verify your identity.')}
-                      className={`px-3 py-1.5 text-white rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-colors
-                        ${color === 'red' ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-500 hover:bg-orange-600'}`}>
-                      {btn}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <button onClick={() => { onSave(notifSettings); onClose(); }}
+          className="mt-5 w-full py-2.5 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 text-sm">
+          Save Preferences
+        </button>
       </div>
     </div>
   );
 };
 
-// ─── HELPER ───────────────────────────────────────────────────────────────────
-const CheckCircleIcon = ({ className }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-    <path d="M504 256c0 136.967-111.033 248-248 248S8 392.967 8 256 119.033 8 256 8s248 111.033 248 248zM227.314 387.314l184-184c6.248-6.248 6.248-16.379 0-22.627l-22.627-22.627c-6.248-6.249-16.379-6.249-22.628 0L216 308.118l-70.059-70.059c-6.248-6.248-16.379-6.248-22.628 0l-22.627 22.627c-6.248 6.248-6.248 16.379 0 22.627l104 104c6.249 6.249 16.379 6.249 22.628.001z" />
-  </svg>
-);
-
 // ─── MAIN DASHBOARD ───────────────────────────────────────────────────────────
 const StudentDashboard = () => {
+  const navigate = useNavigate();
   const { toasts, addToast, removeToast } = useToast();
 
-  const [user] = useState({
-    firstName: 'Amaka', lastName: 'Okonkwo', matricNumber: 'CSC/2021/045',
-    department: 'Computer Science', level: '300', hall: 'Daniel Hall',
-    roomNumber: 'B202', email: 'amaka.okonkwo@university.edu.ng', phone: '08012345678',
-  });
-
-  const [activeTab, setActiveTab] = useState('overview');
+  const [user, setUser]                 = useState(null);
+  const [loading, setLoading]           = useState(true);
+  const [activeTab, setActiveTab]       = useState('overview');
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showTankerTracking, setShowTankerTracking] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [activePlan, setActivePlan]     = useState('Standard Plan');
+  const [requests, setRequests]         = useState([]);
+  const [selectedQuantity, setSelectedQuantity] = useState(null);
+  const [quantityPrice, setQuantityPrice]       = useState(0);
+  const [pendingRequestData, setPendingRequestData] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paystackLoaded, setPaystackLoaded] = useState(false);
 
-  const [settings, setSettings] = useState({
-    emailNotif: true, smsNotif: true, pushNotif: false,
-    deliveryReminders: true, paymentReminders: true, etaAlerts: true,
-    darkMode: false, compactView: false, soundEffects: false,
-    twoFA: false, loginAlerts: true,
-  });
+  // ── Header UI state ──────────────────────────────────────────────────────
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showUserMenu, setShowUserMenu]           = useState(false);
+  const userMenuRef = useRef(null);
 
-  const [paymentHistory, setPaymentHistory] = useState([
-    { id: 'PAY001', date: '2024-01-01', plan: 'Standard Plan', amount: '₦10,000', status: 'paid', method: 'Card' },
-    { id: 'PAY002', date: '2023-12-01', plan: 'Standard Plan', amount: '₦10,000', status: 'paid', method: 'Bank Transfer' },
-    { id: 'PAY003', date: '2023-11-01', plan: 'Basic Plan',    amount: '₦5,000',  status: 'paid', method: 'Card' },
+  // ── Notifications ────────────────────────────────────────────────────────
+  const [notifications, setNotifications] = useState([
+    { id: 1, type: 'info',    title: 'Tanker Arriving Soon',   message: 'Your scheduled tanker arrives in 2 hours.',          time: '10 mins ago', read: false },
+    { id: 2, type: 'warning', title: 'Payment Due',            message: 'Your water plan payment is due in 3 days.',          time: '1 hour ago',  read: false },
+    { id: 3, type: 'success', title: 'Request Confirmed',      message: 'Your water request #A1B2C3 has been confirmed.',     time: '2 hours ago', read: true  },
+    { id: 4, type: 'info',    title: 'New Plan Available',     message: 'Premium plan now available at ₦15,000/month.',      time: 'Yesterday',   read: true  },
   ]);
 
-  const [activePlan, setActivePlan] = useState('Standard Plan');
+  const unreadCount = notifications.filter(n => !n.read).length;
 
-  const handlePaymentSuccess = useCallback(({ plan, ref, method }) => {
-    setPaymentHistory(p => [{
-      id: `PAY${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
-      plan: plan.name, amount: plan.price, status: 'paid', method,
-    }, ...p]);
-    setActivePlan(plan.name);
-  }, []);
+  const markAllRead = () => setNotifications(p => p.map(n => ({ ...n, read: true })));
+  const clearAllNotifications = () => setNotifications([]);
 
-  const deliveries = [
-    { id: 'DEL001', date: '2024-01-15', time: '10:30 AM', amount: 500, tanker: 'TKR-001', driver: 'John Danladi',  actualTime: '28 mins' },
-    { id: 'DEL002', date: '2024-01-14', time: '02:15 PM', amount: 500, tanker: 'TKR-003', driver: 'Peter Sunday',  actualTime: '32 mins' },
-    { id: 'DEL003', date: '2024-01-13', time: '09:00 AM', amount: 500, tanker: 'TKR-002', driver: 'Musa Ibrahim',  actualTime: '30 mins' },
-  ];
+  // ── Settings state (loaded from API) ──────────────────────────────────────
+  const [settings, setSettings] = useState(null);
+  const [notifSettings, setNotifSettings] = useState({
+    deliveryAlerts:     true,
+    paymentReminders:   true,
+    requestUpdates:     true,
+    emailNotifications: true,
+    smsAlerts:          false,
+    autoRenew:          false,
+    consumptionTips:    true,
+    darkMode:           false,
+  });
 
-  const upcomingRequests = [
-    { id: 'REQ001', date: '2024-01-20', time: '08:00 AM', status: 'scheduled', amount: 500, tanker: 'TKR-004', driver: 'Yakubu Moses', eta: '25 mins' },
-    { id: 'REQ002', date: '2024-01-22', time: '02:00 PM', status: 'pending',   amount: 500, tanker: 'Not assigned', eta: 'Pending' },
-  ];
-
-  const activeDelivery = {
-    tanker: 'TKR-004', driver: 'Yakubu Moses', eta: '15 minutes', distance: '5.2 km',
-    currentLocation: { lat: 9.3265, lng: 8.9947 },
-    destination: { lat: 9.3280, lng: 8.9910 },
-    waterLevel: 75,
+  const handleSavePreferences = async (newSettings) => {
+    try {
+      const token = localStorage.getItem('token');
+      // Update all settings
+      await axios.put(`${API_URL}/student/settings`, newSettings, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifSettings(newSettings);
+      addToast('success', 'Preferences saved successfully');
+    } catch (err) {
+      addToast('error', 'Failed to save preferences', err.response?.data?.message);
+    }
   };
 
-  const paymentPlans = [
-    { id: 'plan1', name: 'Basic Plan',    price: '₦5,000',  period: 'month', water: '500L/month',  deliveries: '4 deliveries',
-      features: ['500L water per month', '4 scheduled deliveries', 'Basic tracking', 'Email notifications', 'Standard support'],
-      popular: false, color: 'from-green-500 to-green-600' },
-    { id: 'plan2', name: 'Standard Plan', price: '₦10,000', period: 'month', water: '1000L/month', deliveries: '8 deliveries',
-      features: ['1000L water per month', '8 scheduled deliveries', 'Real-time tracking', 'SMS & Email notifications', 'Priority support', 'Delivery history'],
-      popular: true,  color: 'from-green-600 to-green-700' },
-    { id: 'plan3', name: 'Premium Plan',  price: '₦18,000', period: 'month', water: '2000L/month', deliveries: '12 deliveries',
-      features: ['2000L water per month', '12 scheduled deliveries', 'Real-time tracking with map', 'SMS, Email & Push notifications', '24/7 priority support', 'Analytics & history', 'Flexible scheduling'],
-      popular: false, color: 'from-green-700 to-green-800' },
-  ];
+  // ── Stats ────────────────────────────────────────────────────────────────
+  const [stats, setStats] = useState({
+    totalWater: 0, totalDeliveries: 0,
+    pendingRequests: 0, upcomingRequests: 0,
+    satisfaction: 95, balance: 10000
+  });
 
+  // ── Settings tab state ───────────────────────────────────────────────────
+  const [settingsTab, setSettingsTab]       = useState('profile');
+  const [savingProfile, setSavingProfile]   = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', phone: '', hall: '', roomNumber: '' });
+  const [pwForm, setPwForm]           = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [showPw, setShowPw]           = useState({ current: false, new: false, confirm: false });
+
+  const [pricing, setPricing] = useState({
+  price500L:  5000,
+  price1000L: 9000,
+  price1500L: 12000,
+});
+
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        firstName:  user.firstName  || '',
+        lastName:   user.lastName   || '',
+        phone:      user.phone      || '',
+        hall:       user.hall       || '',
+        roomNumber: user.roomNumber || '',
+      });
+    }
+  }, [user]);
+
+  // Close user menu on outside click
+  useEffect(() => {
+    const handler = (e) => { if (userMenuRef.current && !userMenuRef.current.contains(e.target)) setShowUserMenu(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const quantityPrices = {
+  '500 Liters (Standard)':   pricing.price500L,
+  '1000 Liters (Large)':     pricing.price1000L,
+  '1500 Liters (Extra Large)': pricing.price1500L,
+};
+
+  // Paystack check
+  useEffect(() => {
+    const checkPaystack = () => {
+      if (window.PaystackPop) { setPaystackLoaded(true); }
+      else setTimeout(checkPaystack, 500);
+    };
+    checkPaystack();
+  }, []);
+
+  // ─── FETCH FULL PROFILE (GET /api/student/profile) ───────────────────────
+  const fetchFullProfile = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/student/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        const profileData = response.data.data;
+        setUser(prev => ({ ...prev, ...profileData }));
+        localStorage.setItem('user', JSON.stringify({ ...user, ...profileData }));
+        return profileData;
+      }
+    } catch (err) {
+      console.error('Error fetching full profile:', err);
+    }
+    return null;
+  };
+
+  // ─── FETCH SETTINGS (GET /api/student/settings) ──────────────────────────
+  const fetchSettings = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/student/settings`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        const settingsData = response.data.data;
+        setSettings(settingsData);
+        // Merge notification settings
+        if (settingsData.notifications) {
+          setNotifSettings(prev => ({ ...prev, ...settingsData.notifications }));
+        }
+        // Merge preferences
+        if (settingsData.preferences) {
+          setNotifSettings(prev => ({ ...prev, ...settingsData.preferences }));
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+    }
+  };
+
+  // Fetch user and settings
+  useEffect(() => {
+   const fetchUser = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      addToast('error', 'Session expired', 'Please log in again');
+      setTimeout(() => navigate('/login', { replace: true }), 1000);
+      return;
+    }
+
+    // Try to get user from localStorage first
+    const stored = localStorage.getItem('user');
+    if (stored) {
+      try {
+        const parsedUser = JSON.parse(stored);
+        setUser(parsedUser);
+      } catch(e) {}
+    }
+
+    // ✅ Fetch live pricing from public endpoint (no admin role required)
+    try {
+      const pricingRes = await axios.get(`${API_URL}/admin/pricing/public`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (pricingRes.data.success) {
+        const p = pricingRes.data.data;
+        setPricing({
+          price500L:  p.price500L  || 5000,
+          price1000L: p.price1000L || 9000,
+          price1500L: p.price1500L || 12000,
+        });
+      }
+    } catch (pricingErr) {
+      console.error('Error fetching pricing:', pricingErr);
+    }
+
+    // Fetch in-app notifications from backend
+    try {
+      const notifRes = await axios.get(`${API_URL}/student/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const inAppNotifs = notifRes.data.notifications || notifRes.data.data?.notifications || [];
+
+      if (inAppNotifs.length > 0) {
+        setNotifications(inAppNotifs.map(n => ({
+          id:      n._id || n.id,
+          type:    n.type || 'info',
+          title:   n.title,
+          message: n.message,
+          time:    n.createdAt ? new Date(n.createdAt).toLocaleString() : 'Just now',
+          read:    n.read || false,
+        })));
+      }
+    } catch (notifErr) {
+      console.error('Error fetching notifications:', notifErr);
+    }
+
+    // Fetch fresh user data from auth/me
+    const response = await axios.get(`${API_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      withCredentials: true
+    });
+
+    if (response.data?.data) {
+      setUser(response.data.data);
+      localStorage.setItem('user', JSON.stringify(response.data.data));
+
+      // After getting basic user, fetch full profile
+      await fetchFullProfile();
+    }
+
+    // Fetch user settings
+    await fetchSettings();
+
+  } catch (err) {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setTimeout(() => navigate('/login', { replace: true }), 1500);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+    fetchUser();
+  }, [navigate, addToast]);
+
+  // Fetch requests
+  const fetchRequests = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/water-requests/my-requests`, { headers: { Authorization: `Bearer ${token}` } });
+      if (response.data.success) {
+        setRequests(response.data.data);
+        const pending  = response.data.data.filter(r => r.status === 'pending').length;
+        const upcoming = response.data.data.filter(r => r.status === 'scheduled' || r.status === 'assigned').length;
+        const totalDeliveries = response.data.data.filter(r => r.status === 'completed').length;
+        const totalWater = response.data.data.reduce((sum, r) => sum + (r.quantityValue || 0), 0);
+        setStats(prev => ({ ...prev, totalWater, totalDeliveries, pendingRequests: pending, upcomingRequests: upcoming }));
+      }
+    } catch (err) { console.error('Error fetching requests:', err); }
+  }, []);
+
+  useEffect(() => { if (activeTab === 'requests') fetchRequests(); }, [activeTab, fetchRequests]);
+
+  // Payment handlers
+  const handlePaymentSuccess = async (reference) => {
+    try {
+      const token = localStorage.getItem('token');
+      const verifyResponse = await axios.post(`${API_URL}/payment/verify`, { reference, amount: quantityPrice }, { headers: { Authorization: `Bearer ${token}` } });
+      if (verifyResponse.data.success) {
+        const requestResponse = await axios.post(`${API_URL}/water-requests`, { ...pendingRequestData, paymentReference: reference, amount: quantityPrice }, { headers: { Authorization: `Bearer ${token}` } });
+        if (requestResponse.data.success) {
+          addToast('success', 'Payment successful!', 'Your water request has been submitted.');
+          setShowRequestModal(false); setPendingRequestData(null); setIsProcessing(false);
+          fetchRequests();
+          setNotifications(p => [{ id: Date.now(), type: 'success', title: 'Request Submitted', message: 'Your water request has been submitted successfully.', time: 'Just now', read: false }, ...p]);
+        }
+      }
+    } catch (err) { addToast('error', 'Payment verification failed', 'Please contact support.'); setIsProcessing(false); }
+  };
+
+  const handlePaymentClose = () => { setIsProcessing(false); addToast('info', 'Payment cancelled', 'You can try again anytime.'); };
+
+  const initializePayment = (email, amount, metadata) => {
+    try {
+      if (typeof window.PaystackPop === 'undefined') { addToast('error', 'Payment system not available', 'Refresh and try again'); return; }
+      setIsProcessing(true);
+      const handler = window.PaystackPop.setup({
+        key: PAYSTACK_PUBLIC_KEY, email, amount: amount * 100, metadata,
+        callback: (response) => handlePaymentSuccess(response.reference),
+        onClose: handlePaymentClose
+      });
+      handler.openIframe();
+    } catch (error) { addToast('error', 'Payment Error', error.message); setIsProcessing(false); }
+  };
+
+  const handleRequestSubmit = (e) => {
+    e.preventDefault();
+    const formData     = new FormData(e.target);
+    const deliveryDate = formData.get('deliveryDate');
+    const preferredTime= formData.get('preferredTime');
+    const quantity     = formData.get('quantity');
+    const specialInstructions = formData.get('specialInstructions') || '';
+    if (!deliveryDate || !preferredTime || !quantity) { addToast('error', 'Missing fields', 'Please fill in all required fields'); return; }
+    const price = quantityPrices[quantity];
+    if (!price)          { addToast('error', 'Invalid quantity', 'Please select a valid quantity'); return; }
+    if (!paystackLoaded) { addToast('error', 'Payment system loading', 'Please wait a moment and try again.'); return; }
+    setSelectedQuantity(quantity); setQuantityPrice(price);
+    setPendingRequestData({ deliveryDate, preferredTime, quantity, quantityValue: parseInt(quantity), specialInstructions });
+    initializePayment(user.email, price, { custom_fields: [
+      { display_name: 'Student Name',   variable_name: 'student_name',   value: `${user.firstName} ${user.lastName}` },
+      { display_name: 'Matric Number',  variable_name: 'matric_number',  value: user.matricNumber },
+      { display_name: 'Water Quantity', variable_name: 'water_quantity', value: quantity }
+    ]});
+  };
+
+  const cancelRequest = async (requestId) => {
+    if (!window.confirm('Are you sure you want to cancel this request?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(`${API_URL}/water-requests/${requestId}/cancel`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      if (response.data.success) { addToast('success', 'Request cancelled', 'Your request has been cancelled successfully'); fetchRequests(); }
+    } catch (err) { addToast('error', 'Failed to cancel request', err.response?.data?.message || 'Please try again'); }
+  };
+
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) await axios.post(`${API_URL}/auth/logout`, {}, { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }).catch(() => {});
+    } catch (e) {}
+    finally { localStorage.removeItem('token'); localStorage.removeItem('user'); setTimeout(() => navigate('/login', { replace: true }), 100); }
+  };
+
+  // ─── UPDATE PROFILE (PUT /api/student/profile) ───────────────────────────
+  const handleProfileSave = async () => {
+    try {
+      setSavingProfile(true);
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`${API_URL}/student/profile`, profileForm, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      if (res.data.success) {
+        const updatedUser = { ...user, ...profileForm };
+        setUser(updatedUser); 
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        addToast('success', 'Profile updated successfully');
+        // Refresh full profile
+        await fetchFullProfile();
+      }
+    } catch (err) { 
+      addToast('error', 'Failed to update profile', err.response?.data?.message); 
+    } finally { 
+      setSavingProfile(false); 
+    }
+  };
+
+  // ─── CHANGE PASSWORD (PUT /api/student/change-password) ──────────────────
+  const handlePasswordChange = async () => {
+  if (pwForm.newPassword !== pwForm.confirmPassword) return addToast('error', 'New passwords do not match');
+  if (pwForm.newPassword.length < 8) return addToast('error', 'Password must be at least 8 characters');
+  try {
+    setSavingPassword(true);
+    const token = localStorage.getItem('token');
+    const res = await axios.put(`${API_URL}/student/change-password`, {
+      currentPassword: pwForm.currentPassword,
+      newPassword:     pwForm.newPassword,
+      confirmPassword: pwForm.confirmPassword,  // ← this was missing
+    }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.data.success) {
+      addToast('success', 'Password changed successfully');
+      setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    }
+  } catch (err) {
+    addToast('error', 'Failed to change password', err.response?.data?.message);
+  } finally {
+    setSavingPassword(false);
+  }
+};
+
+  // ─── UPDATE NOTIFICATION SETTINGS (PUT /api/student/settings/notifications) ──
+  const updateNotificationSettings = async (newNotifSettings) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`${API_URL}/student/settings/notifications`, newNotifSettings, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setNotifSettings(prev => ({ ...prev, ...newNotifSettings }));
+        addToast('success', 'Notification settings updated');
+      }
+    } catch (err) {
+      addToast('error', 'Failed to update notification settings', err.response?.data?.message);
+    }
+  };
+
+  // ─── UPDATE PREFERENCES (PUT /api/student/settings/preferences) ───────────
+  const updatePreferences = async (newPreferences) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`${API_URL}/student/settings/preferences`, newPreferences, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setNotifSettings(prev => ({ ...prev, ...newPreferences }));
+        addToast('success', 'Preferences updated');
+      }
+    } catch (err) {
+      addToast('error', 'Failed to update preferences', err.response?.data?.message);
+    }
+  };
+
+  // ─── RESET SETTINGS TO DEFAULTS (PUT /api/student/settings/reset) ─────────
+  const resetSettingsToDefaults = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`${API_URL}/student/settings/reset`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        const defaultSettings = res.data.data;
+        if (defaultSettings.notifications) {
+          setNotifSettings(prev => ({ ...prev, ...defaultSettings.notifications }));
+        }
+        if (defaultSettings.preferences) {
+          setNotifSettings(prev => ({ ...prev, ...defaultSettings.preferences }));
+        }
+        addToast('success', 'Settings reset to defaults');
+      }
+    } catch (err) {
+      addToast('error', 'Failed to reset settings', err.response?.data?.message);
+    }
+  };
+
+  // ─── TOGGLE HANDLER WITH API CALL ─────────────────────────────────────────
+  const handleToggleNotifSetting = async (key) => {
+    const newValue = !notifSettings[key];
+    const update = { [key]: newValue };
+    setNotifSettings(prev => ({ ...prev, ...update }));
+    await updateNotificationSettings(update);
+  };
+
+  const handleTogglePreference = async (key) => {
+    if (key === 'darkMode') {
+      addToast('info', 'Dark mode coming soon!');
+      return;
+    }
+    const newValue = !notifSettings[key];
+    const update = { [key]: newValue };
+    setNotifSettings(prev => ({ ...prev, ...update }));
+    await updatePreferences(update);
+  };
+
+  // Chart
   const consumptionData = {
     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [{ label: 'Water (L)', data: [450, 380, 420, 390, 410, 350, 380], borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.4 }]
@@ -606,65 +636,149 @@ const StudentDashboard = () => {
 
   const TABS = [
     { id: 'overview',  label: 'Overview' },
-    { id: 'tracking',  label: 'Live Tracking' },
-    { id: 'payments',  label: 'Payments & Plans' },
     { id: 'history',   label: 'Delivery History' },
     { id: 'requests',  label: 'My Requests' },
     { id: 'profile',   label: 'Profile' },
+    { id: 'settings',  label: 'Settings' },
   ];
 
-  const STATS = [
-    { icon: <FaTint className="text-green-600" />,          bg: 'bg-green-100',  label: 'Total Water',  val: '6,000L' },
-    { icon: <FaTruck className="text-emerald-600" />,       bg: 'bg-emerald-100',label: 'Deliveries',   val: 12 },
-    { icon: <FaClock className="text-yellow-600" />,        bg: 'bg-yellow-100', label: 'Pending',      val: 1 },
-    { icon: <FaCalendarAlt className="text-purple-600" />,  bg: 'bg-purple-100', label: 'Upcoming',     val: 2 },
-    { icon: <FaCheckCircle className="text-pink-600" />,    bg: 'bg-pink-100',   label: 'Satisfaction', val: '95%' },
-    { icon: <FaMoneyBillWave className="text-blue-600" />,  bg: 'bg-blue-100',   label: 'Balance',      val: '₦10,000' },
-  ];
+  const inputClass = "w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none";
+
+  if (loading && !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center">
+        <div className="text-center">
+          <FaSpinner className="animate-spin text-green-600 text-4xl mx-auto mb-4" />
+          <p className="text-gray-600 font-medium">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Session expired. Please log in again.</p>
+          <button onClick={() => navigate('/login', { replace: true })} className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold">Go to Login</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
-      <style>{`
-        @keyframes slideInRight {
-          from { opacity:0; transform:translateX(110%); }
-          to   { opacity:1; transform:translateX(0); }
-        }
-      `}</style>
-
       <Toast toasts={toasts} removeToast={removeToast} />
 
-      {/* ── HEADER ── */}
+      {/* Settings Modal */}
+      <SettingsModal
+        show={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        notifSettings={notifSettings}
+        setNotifSettings={setNotifSettings}
+        onSave={handleSavePreferences}
+      />
+
+      {/* ─── HEADER ─────────────────────────────────────────────────────────── */}
       <header className="bg-white shadow-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
+            {/* Logo */}
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 bg-green-600 rounded-lg flex items-center justify-center shadow-md">
                 <MdOutlineWaterDrop className="text-xl text-white" />
               </div>
-              <h1 className="text-xl font-bold text-gray-800">Student Dashboard</h1>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="hidden md:flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full border border-green-200">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-xs text-green-700 font-medium">Tanker en-route</span>
-                <span className="text-xs text-green-600">{activeDelivery.eta}</span>
+              <div>
+                <h1 className="text-lg font-bold text-gray-800 leading-none">Student Dashboard</h1>
+                <p className="text-xs text-gray-400 hidden md:block">PLASU HydroTrack</p>
               </div>
-              <button className="relative" onClick={() => addToast('info', '2 new notifications', 'Tanker arriving in 15 min · Payment due in 3 days')}>
-                <FaBell className="text-gray-600 text-xl" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">2</span>
+            </div>
+
+            {/* Right side */}
+            <div className="flex items-center gap-2">
+
+              {/* Request Water Button */}
+              <button onClick={() => setShowRequestModal(true)}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-semibold hover:bg-green-700 transition-colors shadow-sm">
+                <FaPlus size={10} /> Request Water
               </button>
-              <button title="Settings" onClick={() => setShowSettings(true)}
-                className="w-9 h-9 bg-gray-100 hover:bg-green-100 hover:text-green-700 rounded-full flex items-center justify-center transition-colors">
-                <FaCog className="text-gray-600 text-base" />
+
+              {/* Settings / Preferences */}
+              <button onClick={() => setShowSettingsModal(true)}
+                className="w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors"
+                title="Preferences">
+                <FaCog className="text-gray-500 text-sm" />
               </button>
-              <div className="flex items-center gap-2">
-                <div className="h-10 w-10 bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center text-white font-bold text-sm cursor-pointer">
-                  {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
-                </div>
-                <div className="hidden md:block">
-                  <p className="text-sm font-medium text-gray-800">{user.firstName} {user.lastName}</p>
-                  <p className="text-xs text-gray-500">{user.matricNumber}</p>
-                </div>
+
+              {/* Notifications */}
+              <div className="relative">
+                <button
+                  onClick={() => { setShowNotifications(p => !p); setShowUserMenu(false); }}
+                  className="relative w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors"
+                  title="Notifications">
+                  <FaBell className="text-gray-500 text-sm" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                <NotificationsPanel
+                  show={showNotifications}
+                  onClose={() => setShowNotifications(false)}
+                  notifications={notifications}
+                  onMarkRead={markAllRead}
+                  onClearAll={clearAllNotifications}
+                />
+              </div>
+
+              {/* User Avatar + Dropdown */}
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => { setShowUserMenu(p => !p); setShowNotifications(false); }}
+                  className="flex items-center gap-2 hover:bg-gray-50 rounded-xl px-2 py-1 transition-colors">
+                  <div className="h-9 w-9 bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
+                  </div>
+                  <div className="hidden md:block text-left">
+                    <p className="text-sm font-semibold text-gray-800 leading-none">{user.firstName} {user.lastName}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{user.matricNumber}</p>
+                  </div>
+                </button>
+
+                {/* Logout Button */}
+                <button onClick={handleLogout}
+                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-500 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-xl transition-colors font-medium">
+                  <FaSignOutAlt size={12} />
+                  <span>Logout</span>
+                </button>
+
+                {/* User Avatar + Dropdown */}
+                <div className="relative" ref={userMenuRef}></div>
+
+                {/* Dropdown menu */}
+                {showUserMenu && (
+                  <div className="absolute right-0 top-12 w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+                    <div className="px-4 py-3 bg-green-50 border-b border-green-100">
+                      <p className="text-sm font-bold text-gray-800">{user.firstName} {user.lastName}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </div>
+                    {[
+                      { label: '👤 My Profile',  action: () => { setActiveTab('profile');  setShowUserMenu(false); } },
+                      { label: '⚙️ Settings',    action: () => { setActiveTab('settings'); setShowUserMenu(false); } },
+                      { label: '📋 My Requests', action: () => { setActiveTab('requests'); setShowUserMenu(false); } },
+                    ].map(({ label, action }) => (
+                      <button key={label} onClick={action}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+                        {label}
+                      </button>
+                    ))}
+                    <button onClick={handleLogout}
+                      className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium flex items-center gap-2">
+                      <FaSignOutAlt size={12} /> Sign Out
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -672,26 +786,25 @@ const StudentDashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* ── WELCOME BANNER ── */}
+        {/* Welcome Banner */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-6 text-white mb-6 shadow-lg">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h2 className="text-2xl font-bold mb-1">Welcome back, {user.firstName}! 👋</h2>
-              <p className="text-green-100 text-sm">{user.hall}, Room {user.roomNumber} · {user.department} ({user.level} Level)</p>
+              <p className="text-green-100 text-sm">
+                {user.hall || 'Hall not set'}, Room {user.roomNumber || 'Not set'} · {user.department || 'Department not set'} ({user.level || 'N/A'} Level)
+              </p>
               <div className="mt-2 flex flex-wrap gap-2">
+                <span className="text-xs bg-green-500 px-2.5 py-1 rounded-full">Matric: {user.matricNumber}</span>
                 <span className="text-xs bg-green-500 px-2.5 py-1 rounded-full">Active Plan: {activePlan}</span>
-                <span className="text-xs bg-green-500 px-2.5 py-1 rounded-full">Next Payment: 2024-02-01</span>
+                {unreadCount > 0 && (
+                  <span className="text-xs bg-yellow-400 text-yellow-900 px-2.5 py-1 rounded-full font-semibold">
+                    🔔 {unreadCount} new notification{unreadCount > 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button onClick={() => setShowSettings(true)}
-                className="bg-white/20 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors flex items-center gap-2 border border-white/30 backdrop-blur-sm">
-                <FaCog /> Settings
-              </button>
-              <button onClick={() => { setSelectedPlan(null); setShowPaymentModal(true); }}
-                className="bg-white text-green-600 px-4 py-2 rounded-lg font-semibold hover:bg-green-50 transition-colors flex items-center gap-2 shadow-md">
-                <FaCreditCard /> Manage Plan
-              </button>
               <button onClick={() => setShowRequestModal(true)}
                 className="bg-yellow-400 text-green-900 px-4 py-2 rounded-lg font-semibold hover:bg-yellow-500 transition-colors flex items-center gap-2 shadow-md">
                 <FaPlus /> Request Water
@@ -700,52 +813,29 @@ const StudentDashboard = () => {
           </div>
         </div>
 
-        {/* ── ACTIVE DELIVERY CARD ── */}
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-6 border-l-4 border-green-500">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="bg-green-100 p-3 rounded-full animate-pulse">
-                <FaTruck className="text-green-600 text-xl" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-800">Active Delivery</h3>
-                <p className="text-sm text-gray-600">Tanker {activeDelivery.tanker} is on the way</p>
-              </div>
-            </div>
-            <div className="grid  md:grid-cols-4 gap-4 flex-1">
-              <div><p className="text-xs text-gray-500">Driver</p><p className="text-sm font-medium">{activeDelivery.driver}</p></div>
-              <div><p className="text-xs text-gray-500">ETA</p><p className="text-sm font-medium text-green-600">{activeDelivery.eta}</p></div>
-              <div><p className="text-xs text-gray-500">Distance</p><p className="text-sm font-medium">{activeDelivery.distance}</p></div>
-              <div>
-                <p className="text-xs text-gray-500">Water Level</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <div className="w-16 h-1.5 bg-gray-200 rounded-full">
-                    <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${activeDelivery.waterLevel}%` }} />
-                  </div>
-                  <span className="text-xs">{activeDelivery.waterLevel}%</span>
-                </div>
-              </div>
-            </div>
-            <button onClick={() => setShowTankerTracking(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-green-700 flex items-center gap-2 shrink-0 transition-colors">
-              <FaMapMarkedAlt /> Track
-            </button>
-          </div>
-        </div>
-
-        {/* ── STATS ── */}
-        <div className="grid  sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          {STATS.map(({ icon, bg, label, val }) => (
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          {[
+            { icon: <FaTint className="text-green-600" />,         bg: 'bg-green-100',   label: 'Total Water', val: `${stats.totalWater.toLocaleString()}L` },
+            { icon: <FaTruck className="text-emerald-600" />,      bg: 'bg-emerald-100', label: 'Deliveries',  val: stats.totalDeliveries },
+            { icon: <FaClock className="text-yellow-600" />,       bg: 'bg-yellow-100',  label: 'Pending',     val: stats.pendingRequests },
+            { icon: <FaCalendarAlt className="text-purple-600" />, bg: 'bg-purple-100',  label: 'Upcoming',    val: stats.upcomingRequests },
+            { icon: <FaCheckCircle className="text-pink-600" />,   bg: 'bg-pink-100',    label: 'Satisfaction',val: `${stats.satisfaction}%` },
+            { icon: <FaMoneyBillWave className="text-blue-600" />, bg: 'bg-blue-100',    label: 'Balance',     val: `₦${stats.balance.toLocaleString()}` },
+          ].map(({ icon, bg, label, val }) => (
             <div key={label} className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-shadow">
               <div className="flex items-center gap-3">
                 <div className={`${bg} p-2 rounded-lg shrink-0`}>{icon}</div>
-                <div><p className="text-xs text-gray-500">{label}</p><p className="text-lg font-bold text-gray-800">{val}</p></div>
+                <div>
+                  <p className="text-xs text-gray-500">{label}</p>
+                  <p className="text-lg font-bold text-gray-800">{val}</p>
+                </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* ── TABS ── */}
+        {/* Tabs */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-6">
           <div className="border-b border-gray-200 overflow-x-auto">
             <nav className="flex">
@@ -760,7 +850,8 @@ const StudentDashboard = () => {
           </div>
 
           <div className="p-6">
-            {/* OVERVIEW */}
+
+            {/* ── Overview ── */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 <div>
@@ -770,260 +861,370 @@ const StudentDashboard = () => {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Upcoming Deliveries</h3>
                   <div className="space-y-3">
-                    {upcomingRequests.map(r => (
-                      <div key={r.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    {requests.filter(r => r.status === 'scheduled' || r.status === 'assigned').slice(0, 3).map(r => (
+                      <div key={r._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                         <div className="flex items-center gap-3">
                           <FaCalendarAlt className="text-green-600 shrink-0" />
                           <div>
-                            <p className="font-medium text-gray-800">{r.date} at {r.time}</p>
-                            <p className="text-xs text-gray-500">{r.amount}L · Tanker: {r.tanker}</p>
-                            {r.eta !== 'Pending' && <p className="text-xs text-green-600 mt-0.5">ETA: {r.eta}</p>}
+                            <p className="font-medium text-gray-800">{new Date(r.deliveryDate).toLocaleDateString()} at {r.preferredTime}</p>
+                            <p className="text-xs text-gray-500">{r.quantity} · Tanker: {r.tanker}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${r.status === 'scheduled' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>{r.status}</span>
-                          {r.tanker !== 'Not assigned' && <button onClick={() => setShowTankerTracking(true)} className="text-green-600 hover:text-green-800"><FaMapMarkedAlt /></button>}
-                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${r.status === 'scheduled' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                          {r.status}
+                        </span>
                       </div>
                     ))}
+                    {requests.filter(r => r.status === 'scheduled' || r.status === 'assigned').length === 0 && (
+                      <p className="text-center text-gray-500 py-4">No upcoming deliveries</p>
+                    )}
                   </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Deliveries</h3>
-                  <div className="space-y-3">
-                    {deliveries.slice(0, 3).map(d => (
-                      <div key={d.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <FaCheckCircle className="text-green-600 shrink-0" />
-                          <div>
-                            <p className="font-medium text-gray-800">{d.date} at {d.time}</p>
-                            <p className="text-xs text-gray-500">{d.amount}L · Driver: {d.driver}</p>
-                          </div>
-                        </div>
-                        <span className="text-xs text-green-600 font-medium">Completed</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* LIVE TRACKING */}
-            {activeTab === 'tracking' && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Live Tanker Tracking</h3>
-                <div className="h-96 bg-gray-100 rounded-xl overflow-hidden">
-                  <MapContainer center={[9.3265, 8.9947]} zoom={14} style={{ height: '100%', width: '100%' }}>
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
-                    <Marker position={[activeDelivery.currentLocation.lat, activeDelivery.currentLocation.lng]}>
-                      <Popup><div className="p-1"><p className="font-bold">Tanker {activeDelivery.tanker}</p><p className="text-sm">Driver: {activeDelivery.driver}</p><p className="text-sm text-green-600">ETA: {activeDelivery.eta}</p></div></Popup>
-                    </Marker>
-                    <Marker position={[activeDelivery.destination.lat, activeDelivery.destination.lng]}>
-                      <Popup><div className="p-1"><p className="font-bold">Your Location</p><p className="text-sm">Daniel Hall, Room B202</p></div></Popup>
-                    </Marker>
-                  </MapContainer>
-                </div>
-                <div className="grid md:grid-cols-3 gap-4">
-                  {[['Tanker', activeDelivery.tanker], ['Estimated Arrival', activeDelivery.eta], ['Distance', activeDelivery.distance]].map(([lbl, val]) => (
-                    <div key={lbl} className="bg-green-50 p-4 rounded-xl border border-green-100">
-                      <p className="text-xs text-green-600 font-medium">{lbl}</p>
-                      <p className="text-lg font-bold text-gray-800 mt-1">{val}</p>
+                {/* Quick notification preview */}
+                {unreadCount > 0 && (
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-lg font-semibold text-gray-800">Recent Notifications</h3>
+                      <button onClick={markAllRead} className="text-xs text-green-600 font-medium hover:text-green-700">Mark all read</button>
                     </div>
-                  ))}
-                </div>
-                <div className="bg-gray-50 p-4 rounded-xl">
-                  <h4 className="font-semibold text-gray-800 mb-4">Route Timeline</h4>
-                  <div className="space-y-4">
-                    {[
-                      { color: 'bg-green-500', label: 'Tanker Departure',   sub: 'Water Depot · 08:00 AM', active: false },
-                      { color: 'bg-yellow-500', label: 'Current Position',  sub: 'Bokkos Road · 5.2 km away', active: true },
-                      { color: 'bg-gray-300',   label: 'Destination',       sub: 'Daniel Hall, Room B202 · ETA 15 min', active: false },
-                    ].map(({ color, label, sub, active }) => (
-                      <div key={label} className="flex items-start gap-3">
-                        <div className={`w-3 h-3 ${color} rounded-full mt-1 shrink-0 ${active ? 'animate-pulse' : ''}`}></div>
-                        <div><p className="text-sm font-medium text-gray-800">{label}</p><p className="text-xs text-gray-500">{sub}</p></div>
-                      </div>
-                    ))}
+                    <div className="space-y-2">
+                      {notifications.filter(n => !n.read).slice(0, 3).map(n => (
+                        <div key={n.id} className="flex items-start gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                          <span className="text-lg shrink-0">
+                            {n.type === 'success' ? '✅' : n.type === 'warning' ? '⚠️' : n.type === 'error' ? '❌' : 'ℹ️'}
+                          </span>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">{n.title}</p>
+                            <p className="text-xs text-gray-500">{n.message}</p>
+                          </div>
+                          <span className="text-[10px] text-gray-400 shrink-0 ml-auto">{n.time}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
-            {/* PAYMENTS & PLANS */}
-            {activeTab === 'payments' && (
-              <div className="space-y-6">
-                <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-6 text-white">
-                  <h3 className="text-xl font-bold mb-1">Current Plan: {activePlan}</h3>
-                  <p className="text-green-100 mb-4 text-sm">Next payment due: 2024-02-01</p>
-                  <div className="flex gap-3">
-                    <button onClick={() => { setSelectedPlan(null); setShowPaymentModal(true); }}
-                      className="bg-white text-green-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-50 transition-colors">Renew Plan</button>
-                    <button onClick={() => { setSelectedPlan(null); setShowPaymentModal(true); }}
-                      className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-600 transition-colors">Upgrade</button>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Plans</h3>
-                  <div className="grid md:grid-cols-3 gap-4">
-                    {paymentPlans.map(plan => (
-                      <div key={plan.id} className={`relative bg-white rounded-xl shadow-lg overflow-hidden border-2 transition-all hover:shadow-xl
-                        ${plan.popular ? 'border-green-500' : 'border-transparent'}`}>
-                        {plan.popular && <div className="absolute top-0 right-0 bg-green-500 text-white px-3 py-1 text-xs font-bold rounded-bl-lg">POPULAR</div>}
-                        <div className={`p-6 bg-gradient-to-r ${plan.color}`}>
-                          <h4 className="text-xl font-bold text-white">{plan.name}</h4>
-                          <p className="text-3xl font-black text-white mt-2">{plan.price}</p>
-                          <p className="text-green-100 text-sm">per {plan.period}</p>
-                        </div>
-                        <div className="p-6">
-                          <p className="text-sm text-gray-600 mb-4 font-medium">{plan.water} · {plan.deliveries}</p>
-                          <ul className="space-y-2 mb-6">
-                            {plan.features.map((f, i) => (
-                              <li key={i} className="flex items-start gap-2 text-sm">
-                                <CheckCircleIcon className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-                                <span className="text-gray-700">{f}</span>
-                              </li>
-                            ))}
-                          </ul>
-                          <button
-                            onClick={() => { setSelectedPlan(plan); setShowPaymentModal(true); }}
-                            className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-2.5 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all shadow-md">
-                            Select Plan
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment History</h3>
-                  <div className="overflow-x-auto rounded-xl border border-gray-100">
-                    <table className="w-full">
-                      <thead className="bg-gray-50">
-                        <tr>{['Date', 'Plan', 'Amount', 'Method', 'Status'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {paymentHistory.map(p => (
-                          <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-4 py-3 text-sm text-gray-700">{p.date}</td>
-                            <td className="px-4 py-3 text-sm text-gray-800 font-medium">{p.plan}</td>
-                            <td className="px-4 py-3 text-sm font-bold text-gray-800">{p.amount}</td>
-                            <td className="px-4 py-3 text-sm text-gray-700">{p.method}</td>
-                            <td className="px-4 py-3"><span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">{p.status}</span></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* DELIVERY HISTORY */}
+            {/* ── History ── */}
             {activeTab === 'history' && (
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Delivery History</h3>
                 <div className="overflow-x-auto rounded-xl border border-gray-100">
                   <table className="w-full">
                     <thead className="bg-gray-50">
-                      <tr>{['Date/Time', 'Amount', 'Tanker', 'Driver', 'Duration', 'Status'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr>
+                      <tr>
+                        {['Date/Time','Amount','Tanker','Driver','Amount Paid','Status'].map(h => (
+                          <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                        ))}
+                      </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {deliveries.map(d => (
-                        <tr key={d.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-3 text-sm text-gray-800">{d.date}<br /><span className="text-xs text-gray-400">{d.time}</span></td>
-                          <td className="px-4 py-3 text-sm font-semibold text-gray-800">{d.amount}L</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{d.tanker}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{d.driver}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{d.actualTime}</td>
+                      {requests.filter(r => r.status === 'completed').map(r => (
+                        <tr key={r._id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 text-sm text-gray-800">{new Date(r.deliveryDate).toLocaleDateString()}<br /><span className="text-xs text-gray-400">{r.preferredTime}</span></td>
+                          <td className="px-4 py-3 text-sm font-semibold text-gray-800">{r.quantity}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{r.tanker}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{r.driver}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-green-600">₦{r.amount?.toLocaleString() || quantityPrices[r.quantity]?.toLocaleString()}</td>
                           <td className="px-4 py-3"><span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">Completed</span></td>
                         </tr>
                       ))}
+                      {requests.filter(r => r.status === 'completed').length === 0 && (
+                        <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-500">No delivery history yet</td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
             )}
 
-            {/* MY REQUESTS */}
+            {/* ── Requests ── */}
             {activeTab === 'requests' && (
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-gray-800">My Water Requests</h3>
                   <button onClick={() => setShowRequestModal(true)}
-                    className="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:from-green-700 hover:to-green-800 flex items-center gap-2 transition-all">
+                    className="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:from-green-700 hover:to-green-800 flex items-center gap-2">
                     <FaPlus size={11} /> New Request
                   </button>
                 </div>
                 <div className="space-y-4">
-                  {upcomingRequests.map(r => (
-                    <div key={r.id} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-semibold text-gray-800">Request #{r.id}</p>
-                          <p className="text-sm text-gray-500">{r.date} at {r.time}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {r.tanker !== 'Not assigned' && <button onClick={() => setShowTankerTracking(true)} className="text-green-600 hover:text-green-800"><FaMapMarkedAlt /></button>}
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${r.status === 'scheduled' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{r.status}</span>
-                        </div>
-                      </div>
-                      <div className="flex gap-4 text-sm text-gray-600">
-                        <span>Amount: <strong>{r.amount}L</strong></span>
-                        <span>Tanker: <strong>{r.tanker}</strong></span>
-                      </div>
-                      {r.eta && r.eta !== 'Pending' && (
-                        <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
-                          <FaStopwatch /><span>ETA: {r.eta}</span>
-                        </div>
-                      )}
-                      {r.status === 'pending' && (
-                        <div className="mt-3 flex gap-3">
-                          <button onClick={() => addToast('success', `Request #${r.id} cancelled`, 'You will receive a confirmation email.')} className="text-sm text-red-600 hover:text-red-800 font-medium">Cancel</button>
-                          <button onClick={() => addToast('info', 'Edit request', 'Request editing opens soon.')} className="text-sm text-green-600 hover:text-green-800 font-medium">Edit</button>
-                        </div>
-                      )}
+                  {requests.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No water requests yet.</p>
+                      <button onClick={() => setShowRequestModal(true)} className="mt-2 text-green-600 font-semibold hover:text-green-700">Create your first request →</button>
                     </div>
-                  ))}
+                  ) : (
+                    requests.map(r => (
+                      <div key={r._id} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="font-semibold text-gray-800">Request #{r._id.slice(-6).toUpperCase()}</p>
+                            <p className="text-sm text-gray-500">{new Date(r.deliveryDate).toLocaleDateString()} at {r.preferredTime}</p>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            r.status === 'scheduled' ? 'bg-green-100 text-green-700' :
+                            r.status === 'assigned'  ? 'bg-blue-100 text-blue-700' :
+                            r.status === 'completed' ? 'bg-gray-100 text-gray-700' :
+                            r.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                          }`}>{r.status}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                          <span>Amount: <strong>{r.quantity}</strong></span>
+                          <span>Price: <strong className="text-green-600">₦{(r.amount || quantityPrices[r.quantity]).toLocaleString()}</strong></span>
+                          <span>Tanker: <strong>{r.tanker}</strong></span>
+                          {r.estimatedTime !== 'Pending' && <span>ETA: <strong>{r.estimatedTime}</strong></span>}
+                        </div>
+                        {r.status === 'pending' && (
+                          <div className="mt-3">
+                            <button onClick={() => cancelRequest(r._id)} className="text-xs text-red-600 hover:text-red-700 font-medium">Cancel Request</button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
 
-            {/* PROFILE */}
+            {/* ── Profile ── */}
             {activeTab === 'profile' && (
               <div>
-                <div className="flex justify-between items-center mb-5">
-                  <h3 className="text-lg font-semibold text-gray-800">Profile Information</h3>
-                  <button onClick={() => setShowSettings(true)}
-                    className="flex items-center gap-2 text-sm text-green-600 hover:text-green-700 border border-green-200 px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors font-medium">
-                    <FaCog size={12} /> Edit in Settings
-                  </button>
+                <h3 className="text-lg font-semibold text-gray-800 mb-5">Profile Information</h3>
+                <div className="flex items-center gap-4 mb-6 p-4 bg-green-50 rounded-xl border border-green-100">
+                  <div className="h-16 w-16 bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center text-white font-bold text-2xl shrink-0">
+                    {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-gray-800">{user.firstName} {user.lastName}</p>
+                    <p className="text-sm text-gray-500">{user.email}</p>
+                    <span className={`mt-1 inline-block text-xs px-2 py-0.5 rounded-full font-medium ${user.isVerified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                      {user.isVerified ? '✓ Verified' : '⚠ Not Verified'}
+                    </span>
+                  </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   {[
-                    { icon: <div className="h-10 w-10 bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center text-white font-bold text-sm">{user.firstName?.charAt(0)}{user.lastName?.charAt(0)}</div>, label: 'Full Name', val: `${user.firstName} ${user.lastName}` },
-                    { icon: <FaIdCard className="text-2xl text-green-600" />,       label: 'Matric Number', val: user.matricNumber },
-                    { icon: <FaGraduationCap className="text-2xl text-green-600" />,label: 'Department',    val: user.department },
-                    { icon: <FaHome className="text-2xl text-green-600" />,         label: 'Residence',     val: `${user.hall}, Room ${user.roomNumber}` },
-                    { icon: <FaEnvelope className="text-2xl text-green-600" />,     label: 'Email',         val: user.email },
-                    { icon: <FaPhone className="text-2xl text-green-600" />,        label: 'Phone',         val: user.phone },
-                    { icon: <FaMapMarkerAlt className="text-2xl text-green-600" />, label: 'Level',         val: `${user.level} Level` },
-                    { icon: <FaCreditCard className="text-2xl text-green-600" />,   label: 'Current Plan',  val: activePlan },
+                    { icon: <FaIdCard className="text-green-600 text-xl" />,        label: 'Matric Number', val: user.matricNumber },
+                    { icon: <FaGraduationCap className="text-green-600 text-xl" />, label: 'Department',    val: user.department || 'Not set' },
+                    { icon: <FaCalendarAlt className="text-green-600 text-xl" />,   label: 'Level',         val: `${user.level || 'N/A'} Level` },
+                    { icon: <FaHome className="text-green-600 text-xl" />,          label: 'Hall',          val: user.hall || 'Not set' },
+                    { icon: <FaMapMarkerAlt className="text-green-600 text-xl" />,  label: 'Room Number',   val: user.roomNumber || 'Not set' },
+                    { icon: <FaPhone className="text-green-600 text-xl" />,         label: 'Phone',         val: user.phone || 'Not set' },
+                    { icon: <FaEnvelope className="text-green-600 text-xl" />,      label: 'Email',         val: user.email },
+                    { icon: <FaCreditCard className="text-green-600 text-xl" />,    label: 'Active Plan',   val: activePlan },
                   ].map(({ icon, label, val }) => (
                     <div key={label} className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                       <div className="shrink-0">{icon}</div>
-                      <div><p className="text-xs text-gray-500">{label}</p><p className="font-semibold text-gray-800">{val}</p></div>
+                      <div><p className="text-xs text-gray-500">{label}</p><p className="font-semibold text-gray-800">{val || '—'}</p></div>
                     </div>
                   ))}
                 </div>
+                <div className="mt-6 flex gap-3 pt-4 border-t border-gray-200">
+                  <button onClick={() => setActiveTab('settings')}
+                    className="flex items-center gap-2 text-sm text-green-600 hover:text-green-700 border border-green-200 hover:bg-green-50 px-4 py-2 rounded-lg transition-colors font-medium">
+                    <FaCog size={12} /> Edit Profile
+                  </button>
+                  <button onClick={handleLogout}
+                    className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors font-medium">
+                    <FaSignOutAlt size={12} /> Sign Out
+                  </button>
+                </div>
               </div>
             )}
+
+            {/* ── Settings ── */}
+            {activeTab === 'settings' && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-5">Account Settings</h3>
+
+                {/* Sub Tabs */}
+                <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
+                  {[
+                    ['profile',       '👤 Edit Profile'],
+                    ['password',      '🔑 Change Password'],
+                    ['notifications', '🔔 Notifications'],
+                    ['preferences',   '🎛️ Preferences'],
+                  ].map(([id, label]) => (
+                    <button key={id} onClick={() => setSettingsTab(id)}
+                      className={`px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors
+                        ${settingsTab === id ? 'border-b-2 border-green-600 text-green-600' : 'text-gray-500 hover:text-gray-700'}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Edit Profile */}
+                {settingsTab === 'profile' && (
+                  <div className="space-y-4 max-w-lg">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium mb-1 block">First Name</label>
+                        <input value={profileForm.firstName} onChange={e => setProfileForm(p => ({...p, firstName: e.target.value}))} className={inputClass} placeholder="First name" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium mb-1 block">Last Name</label>
+                        <input value={profileForm.lastName} onChange={e => setProfileForm(p => ({...p, lastName: e.target.value}))} className={inputClass} placeholder="Last name" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1 block">Phone Number</label>
+                      <input value={profileForm.phone} onChange={e => setProfileForm(p => ({...p, phone: e.target.value}))} className={inputClass} placeholder="Phone number" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1 block">Hall of Residence</label>
+                      <select value={profileForm.hall} onChange={e => setProfileForm(p => ({...p, hall: e.target.value}))} className={inputClass}>
+                        <option value="">Select Hall</option>
+                        {['Daniel Hall','Joseph Hall','Mary Hall','Peter Hall','Paul Hall','Esther Hall','Ruth Hall','Samuel Hall'].map(h => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1 block">Room Number</label>
+                      <input value={profileForm.roomNumber} onChange={e => setProfileForm(p => ({...p, roomNumber: e.target.value.toUpperCase()}))} className={inputClass} placeholder="e.g. B202" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1 block">Email</label>
+                      <input value={user?.email} disabled className={`${inputClass} bg-gray-50 text-gray-400 cursor-not-allowed`} />
+                      <p className="text-xs text-gray-400 mt-1">Email cannot be changed. Contact admin.</p>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1 block">Matric Number</label>
+                      <input value={user?.matricNumber} disabled className={`${inputClass} bg-gray-50 text-gray-400 cursor-not-allowed`} />
+                    </div>
+                    <button onClick={handleProfileSave} disabled={savingProfile}
+                      className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                      {savingProfile ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Changes'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Change Password */}
+                {settingsTab === 'password' && (
+                  <div className="space-y-4 max-w-lg">
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                      🔒 Password must be at least 8 characters long.
+                    </div>
+                    {[
+                      { key: 'currentPassword', label: 'Current Password',     show: 'current' },
+                      { key: 'newPassword',     label: 'New Password',         show: 'new'     },
+                      { key: 'confirmPassword', label: 'Confirm New Password', show: 'confirm' },
+                    ].map(({ key, label, show }) => (
+                      <div key={key}>
+                        <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
+                        <div className="relative">
+                          <input type={showPw[show] ? 'text' : 'password'} value={pwForm[key]}
+                            onChange={e => setPwForm(p => ({...p, [key]: e.target.value}))}
+                            className={`${inputClass} pr-10`} placeholder={label} />
+                          <button type="button" onClick={() => setShowPw(p => ({...p, [show]: !p[show]}))}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">
+                            {showPw[show] ? '🙈' : '👁️'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {pwForm.newPassword && (
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-gray-500">Password strength</span>
+                          <span className={pwForm.newPassword.length >= 12 ? 'text-green-600 font-semibold' : pwForm.newPassword.length >= 8 ? 'text-yellow-600 font-semibold' : 'text-red-600 font-semibold'}>
+                            {pwForm.newPassword.length >= 12 ? 'Strong' : pwForm.newPassword.length >= 8 ? 'Good' : 'Too short'}
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all duration-300 ${pwForm.newPassword.length >= 12 ? 'w-full bg-green-500' : pwForm.newPassword.length >= 8 ? 'w-2/3 bg-yellow-500' : 'w-1/3 bg-red-500'}`} />
+                        </div>
+                      </div>
+                    )}
+                    {pwForm.confirmPassword && (
+                      <p className={`text-xs font-medium flex items-center gap-1 ${pwForm.newPassword === pwForm.confirmPassword ? 'text-green-600' : 'text-red-500'}`}>
+                        {pwForm.newPassword === pwForm.confirmPassword ? '✅ Passwords match' : '❌ Passwords do not match'}
+                      </p>
+                    )}
+                    <button onClick={handlePasswordChange}
+                      disabled={savingPassword || !pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword}
+                      className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                      {savingPassword ? <><FaSpinner className="animate-spin" /> Changing...</> : '🔑 Change Password'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Notifications Settings */}
+                {settingsTab === 'notifications' && (
+                  <div className="max-w-lg space-y-1">
+                    <div className="flex justify-between items-center mb-4">
+                      <p className="text-xs text-gray-400">Control how and when you receive notifications.</p>
+                      <button onClick={resetSettingsToDefaults} className="text-xs text-red-500 hover:text-red-700 font-medium">
+                        Reset to Defaults
+                      </button>
+                    </div>
+                    {[
+                      { label: 'Delivery Alerts',       sub: 'Notify when tanker is on the way',     k: 'deliveryAlerts'     },
+                      { label: 'Payment Reminders',     sub: 'Alert before payment is due',          k: 'paymentReminders'   },
+                      { label: 'Request Updates',       sub: 'Status changes on your water requests',k: 'requestUpdates'     },
+                      { label: 'Email Notifications',   sub: 'Receive updates via email',            k: 'emailNotifications' },
+                      { label: 'SMS Alerts',            sub: 'Receive SMS for urgent updates',       k: 'smsAlerts'          },
+                    ].map(({ label, sub, k }) => (
+                      <div key={k} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{label}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{sub}</p>
+                        </div>
+                        <button onClick={() => handleToggleNotifSetting(k)} className="active:scale-90 transition-transform ml-4 shrink-0">
+                          {notifSettings[k] ? <FaToggleOn className="text-3xl text-green-500" /> : <FaToggleOff className="text-3xl text-gray-300" />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Preferences */}
+                {settingsTab === 'preferences' && (
+                  <div className="max-w-lg space-y-1">
+                    <div className="flex justify-between items-center mb-4">
+                      <p className="text-xs text-gray-400">Customize your dashboard experience.</p>
+                      <button onClick={resetSettingsToDefaults} className="text-xs text-red-500 hover:text-red-700 font-medium">
+                        Reset to Defaults
+                      </button>
+                    </div>
+                    {[
+                      { label: 'Auto-Renew Plan',       sub: 'Automatically renew your water plan',   k: 'autoRenew'        },
+                      { label: 'Consumption Tips',      sub: 'Show water saving tips on dashboard',   k: 'consumptionTips'  },
+                      { label: 'Dark Mode',             sub: 'Switch to dark theme (coming soon)',     k: 'darkMode'         },
+                    ].map(({ label, sub, k }) => (
+                      <div key={k} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{label}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{sub}</p>
+                        </div>
+                        <button onClick={() => handleTogglePreference(k)} className="active:scale-90 transition-transform ml-4 shrink-0">
+                          {notifSettings[k] ? <FaToggleOn className="text-3xl text-green-500" /> : <FaToggleOff className="text-3xl text-gray-300" />}
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Plan info */}
+                    <div className="mt-6 p-4 bg-green-50 rounded-xl border border-green-100">
+                      <p className="text-sm font-semibold text-gray-800 mb-1">Current Plan: {activePlan}</p>
+                      <p className="text-xs text-gray-500 mb-3">Upgrade to get more water deliveries per month at a better rate.</p>
+                      <button onClick={() => addToast('info', 'Plan upgrade coming soon!', 'Contact admin to upgrade your plan.')}
+                        className="text-xs font-semibold text-green-700 hover:text-green-800 border border-green-300 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors">
+                        View Available Plans →
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         </div>
       </main>
 
-      {/* ── REQUEST MODAL ── */}
+      {/* Request Modal */}
       {showRequestModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -1032,103 +1233,66 @@ const StudentDashboard = () => {
                 <h3 className="text-xl font-bold text-gray-800">Request Water Delivery</h3>
                 <button onClick={() => setShowRequestModal(false)} className="text-gray-400 hover:text-gray-700">✕</button>
               </div>
-              <form className="space-y-4" onSubmit={e => { e.preventDefault(); setShowRequestModal(false); addToast('success', 'Request submitted! 🚰', 'You will be notified when a tanker is assigned.'); }}>
+              <form onSubmit={handleRequestSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Delivery Date</label>
-                  <input type="date" required min={new Date().toISOString().split('T')[0]}
+                  <input type="date" name="deliveryDate" required min={new Date().toISOString().split('T')[0]}
                     className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Preferred Time</label>
-                  <select className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                    {['08:00 - 10:00', '10:00 - 12:00', '12:00 - 14:00', '14:00 - 16:00', '16:00 - 18:00'].map(t => <option key={t}>{t}</option>)}
+                  <select name="preferredTime" required className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    <option value="">Select time slot</option>
+                    {['08:00 - 10:00','10:00 - 12:00','12:00 - 14:00','14:00 - 16:00','16:00 - 18:00'].map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Quantity</label>
-                  <select className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                    <option>500 Liters (Standard)</option>
-                    <option>1000 Liters (Large)</option>
-                    <option>1500 Liters (Extra Large)</option>
+                  <select name="quantity" required
+                    onChange={e => {
+                        const price = quantityPrices[e.target.value];
+                        document.getElementById('priceDisplay').textContent = price ? `₦${price.toLocaleString()}` : '₦0';
+                      }}
+                    className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    <option value="">Select quantity</option>
+                        <option value="500 Liters (Standard)">
+                          500 Liters (Standard) - ₦{pricing.price500L.toLocaleString()}
+                        </option>
+                        <option value="1000 Liters (Large)">
+                          1000 Liters (Large) - ₦{pricing.price1000L.toLocaleString()}
+                        </option>
+                        <option value="1500 Liters (Extra Large)">
+                          1500 Liters (Extra Large) - ₦{pricing.price1500L.toLocaleString()}
+                        </option>
                   </select>
+                </div>
+                <div className="bg-green-50 p-3 rounded-xl">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-semibold text-gray-700">Total Amount:</span>
+                    <span id="priceDisplay" className="text-xl font-bold text-green-600">₦0</span>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Special Instructions</label>
-                  <textarea rows="3" className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any special requests or delivery notes…" />
+                  <textarea name="specialInstructions" rows="3"
+                    className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Any special requests or delivery notes…" />
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setShowRequestModal(false)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
-                  <button type="submit" className="flex-1 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-bold hover:from-green-700 hover:to-green-800 transition-all">Submit Request</button>
+                  <button type="button" onClick={() => setShowRequestModal(false)} disabled={isProcessing}
+                    className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={isProcessing || !paystackLoaded}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-bold hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {isProcessing ? 'Processing...' : !paystackLoaded ? 'Loading Payment...' : 'Pay & Submit'}
+                  </button>
                 </div>
               </form>
             </div>
           </div>
         </div>
       )}
-
-      {/* ── TANKER TRACKING MODAL ── */}
-      {showTankerTracking && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-800">Tanker Tracking</h3>
-                <button onClick={() => setShowTankerTracking(false)} className="text-gray-400 hover:text-gray-700">✕</button>
-              </div>
-              <div className="h-72 bg-gray-100 rounded-xl mb-4 overflow-hidden">
-                <MapContainer center={[9.3265, 8.9947]} zoom={14} style={{ height: '100%', width: '100%' }}>
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
-                  <Marker position={[9.3265, 8.9947]}><Popup>Tanker {activeDelivery.tanker}</Popup></Marker>
-                  <Marker position={[9.3280, 8.9910]}><Popup>Daniel Hall, Room B202</Popup></Marker>
-                </MapContainer>
-              </div>
-              <div className="grid  gap-3 mb-4">
-                {[['Tanker', activeDelivery.tanker], ['Driver', activeDelivery.driver], ['ETA', activeDelivery.eta], ['Distance', activeDelivery.distance]].map(([lbl, val]) => (
-                  <div key={lbl} className="bg-gray-50 p-3 rounded-xl">
-                    <p className="text-xs text-gray-500">{lbl}</p>
-                    <p className={`font-semibold text-sm ${lbl === 'ETA' ? 'text-green-600' : 'text-gray-800'}`}>{val}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="mb-4">
-                <div className="flex justify-between text-xs text-gray-500 mb-1"><span>Water Depot</span><span>Your Location</span></div>
-                <div className="w-full h-2 bg-gray-200 rounded-full"><div className="w-3/4 h-2 bg-green-500 rounded-full transition-all"></div></div>
-              </div>
-              <div className="bg-green-50 p-3 rounded-xl mb-4 flex items-start gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mt-1.5 shrink-0"></div>
-                <div>
-                  <p className="text-sm font-semibold text-green-800">Live Update</p>
-                  <p className="text-xs text-green-600 mt-0.5">Tanker is {activeDelivery.distance} away · Arriving in approximately {activeDelivery.eta}</p>
-                </div>
-              </div>
-              <button onClick={() => setShowTankerTracking(false)}
-                className="w-full py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-bold hover:from-green-700 hover:to-green-800 transition-all">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── PAYMENT MODAL ── */}
-      <PaymentModal
-        show={showPaymentModal}
-        onClose={() => { setShowPaymentModal(false); setSelectedPlan(null); }}
-        selectedPlan={selectedPlan}
-        userEmail={user?.email}
-        addToast={addToast}
-        onPaymentSuccess={handlePaymentSuccess}
-      />
-
-      {/* ── SETTINGS PANEL ── */}
-      <SettingsPanel
-        show={showSettings}
-        onClose={() => setShowSettings(false)}
-        user={user}
-        settings={settings}
-        setSettings={setSettings}
-        addToast={addToast}
-      />
     </div>
   );
 };
