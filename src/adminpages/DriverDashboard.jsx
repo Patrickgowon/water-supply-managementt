@@ -492,7 +492,7 @@ const DriverDashboard = () => {
   const [showSignature, setShowSignature]             = useState(false);
   const [showIncident, setShowIncident]               = useState(false);
   const [showSettings, setShowSettings]               = useState(false);
-  const [showNotifications, setShowNotifications]     = useState(false); // ✅
+  const [showNotifications, setShowNotifications]     = useState(false);
   const [activeDeliveryId, setActiveDeliveryId]       = useState(null);
   const [shiftRunning, setShiftRunning]               = useState(true);
   const shiftTime = useShiftTimer(shiftRunning);
@@ -518,7 +518,7 @@ const DriverDashboard = () => {
   const [perf, setPerf]                           = useState({ rating: 0, onTime: 0, total: 0, incidents: 0, targetPct: 0 });
   const [deliveries, setDeliveries]               = useState([]);
   const [historyDeliveries, setHistoryDeliveries] = useState([]);
-  const [notifications, setNotifications]         = useState([]); // ✅ filled from backend
+  const [notifications, setNotifications]         = useState([]);
 
   const [earningsPeriod, setEarningsPeriod] = useState('today');
   const [showWithdrawal, setShowWithdrawal] = useState(false);
@@ -532,6 +532,28 @@ const DriverDashboard = () => {
     tipAverage:        50,
     commissionPercent: 15,
   });
+
+  // ✅ NEW STATE for withdrawal functionality
+  const [availableBalance, setAvailableBalance] = useState(0);
+  const [totalWithdrawnAmount, setTotalWithdrawnAmount] = useState(0);
+  const [withdrawalHistory, setWithdrawalHistory] = useState([]);
+
+  // ─── Fetch withdrawal balance ──────────────────────────────────────────────
+  const fetchWithdrawalBalance = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/withdrawals/my`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setAvailableBalance(res.data.data.availableBalance || 0);
+        setTotalWithdrawnAmount(res.data.data.totalWithdrawn || 0);
+        setWithdrawalHistory(res.data.data.withdrawals || []);
+      }
+    } catch (err) {
+      console.error('Error fetching withdrawal balance:', err);
+    }
+  };
 
   // ─── Save settings ────────────────────────────────────────────────────────
   const saveSettings = async (newSettings) => {
@@ -550,7 +572,6 @@ const DriverDashboard = () => {
   const markAllRead = async () => {
     try {
       const token = localStorage.getItem('token');
-      // Optimistic update
       setNotifications(p => p.map(n => ({ ...n, read: true })));
       const unread = notifications.filter(n => !n.read);
       await Promise.all(
@@ -579,131 +600,126 @@ const DriverDashboard = () => {
   };
 
   // ─── Fetch all driver data ────────────────────────────────────────────────
- const fetchDriverData = async () => {
-  try {
-    setLoading(true);
-    const token = localStorage.getItem('token');
-    if (!token) { navigate('/driver-login'); return; }
-
-    const profileRes = await axios.get(`${API_URL}/driver/profile`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    if (profileRes.data.success) {
-      const driver = profileRes.data.data;
-      setDriverInfo({
-        name:            `${driver.firstName} ${driver.lastName}`,
-        id:              driver._id?.slice(-6).toUpperCase() || driver.tankerId || 'DRV-001',
-        tanker:          driver.tankerId || 'TKR-001',
-        phone:           driver.phone,
-        email:           driver.email,
-        rating:          driver.rating || 0,
-        totalDeliveries: driver.totalDeliveries || 0
-      });
-      setVehicle({
-        fuel:   driver.vehicleHealth?.fuel   || 68,
-        engine: driver.vehicleHealth?.engine || 88,
-        tyres:  driver.vehicleHealth?.tyres  || 72,
-        oil:    driver.vehicleHealth?.oil    || 55
-      });
-    }
-
-    const settingsRes = await axios.get(`${API_URL}/driver/settings`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (settingsRes.data.success) setSettings(settingsRes.data.data);
-
-    // ✅ Added console logs for deliveries
-    console.log('🚀 Fetching today deliveries...');
-    const deliveriesRes = await axios.get(`${API_URL}/driver/deliveries/today`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    console.log('📦 Deliveries response:', deliveriesRes.data);
-    console.log('📦 Deliveries data array:', deliveriesRes.data.data);
-    console.log('📦 Number of deliveries:', deliveriesRes.data.data?.length || 0);
-    
-    if (deliveriesRes.data.success) {
-      setDeliveries(deliveriesRes.data.data);
-      const active = deliveriesRes.data.data.find(d => d.status === 'in-progress');
-      if (active) setActiveDeliveryId(active.id || active._id);
-    } else {
-      console.log('❌ Deliveries response not successful:', deliveriesRes.data);
-    }
-
-    const historyRes = await axios.get(`${API_URL}/driver/deliveries/history`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (historyRes.data.success) setHistoryDeliveries(historyRes.data.data);
-
-    const earningsRes = await axios.get(`${API_URL}/driver/earnings`, {
-      headers: { Authorization: `Bearer ${token}` }
-     });
-    if (earningsRes.data.success) {
-      setEarnings(earningsRes.data.data);
-      // ✅ Also update commission rates from earnings response
-      if (earningsRes.data.data.rates) {
-        setCommission(prev => ({
-          ...prev,
-          baseRatePerLiter: earningsRes.data.data.rates.baseRatePerLiter,
-          bonusPerDelivery: earningsRes.data.data.rates.bonusPerDelivery,
-          tipAverage:       earningsRes.data.data.rates.tipAverage,
-        }));
-      }
-}
-
-
-    const perfRes = await axios.get(`${API_URL}/driver/performance`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (perfRes.data.success) setPerf(perfRes.data.data);
-
-    // ✅ Fetch notifications from backend
+  const fetchDriverData = async () => {
     try {
-      console.log('🔔 Fetching notifications...');
-      const notifRes = await axios.get(`${API_URL}/driver/notifications`, {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) { navigate('/driver-login'); return; }
+
+      const profileRes = await axios.get(`${API_URL}/driver/profile`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (notifRes.data.success) {
-        console.log('🔔 Notifications count:', notifRes.data.data?.length || 0);
-        setNotifications(notifRes.data.data || []);
-      }
-    } catch (notifErr) {
-      console.error('Error fetching notifications:', notifErr);
-    }
 
-    // ✅ Fetch commission rates from admin settings
-    try {
-      const commissionRes = await axios.get(`${API_URL}/admin/pricing/public`, {
+      if (profileRes.data.success) {
+        const driver = profileRes.data.data;
+        setDriverInfo({
+          name:            `${driver.firstName} ${driver.lastName}`,
+          id:              driver._id?.slice(-6).toUpperCase() || driver.tankerId || 'DRV-001',
+          tanker:          driver.tankerId || 'TKR-001',
+          phone:           driver.phone,
+          email:           driver.email,
+          rating:          driver.rating || 0,
+          totalDeliveries: driver.totalDeliveries || 0
+        });
+        setVehicle({
+          fuel:   driver.vehicleHealth?.fuel   || 68,
+          engine: driver.vehicleHealth?.engine || 88,
+          tyres:  driver.vehicleHealth?.tyres  || 72,
+          oil:    driver.vehicleHealth?.oil    || 55
+        });
+      }
+
+      const settingsRes = await axios.get(`${API_URL}/driver/settings`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (commissionRes.data.success) {
-        const c = commissionRes.data.data;
-        setCommission(prev => ({
-          ...prev,
-          baseRatePerLiter:  c.baseRatePerLiter  || 100,
-          bonusPerDelivery:  c.bonusPerDelivery  || 200,
-          tipAverage:        c.tipAverage        || 50,
-          commissionPercent: c.commissionPercent || 15,
-        }));
+      if (settingsRes.data.success) setSettings(settingsRes.data.data);
+
+      console.log('🚀 Fetching today deliveries...');
+      const deliveriesRes = await axios.get(`${API_URL}/driver/deliveries/today`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      console.log('📦 Deliveries response:', deliveriesRes.data);
+      console.log('📦 Deliveries data array:', deliveriesRes.data.data);
+      console.log('📦 Number of deliveries:', deliveriesRes.data.data?.length || 0);
+      
+      if (deliveriesRes.data.success) {
+        setDeliveries(deliveriesRes.data.data);
+        const active = deliveriesRes.data.data.find(d => d.status === 'in-progress');
+        if (active) setActiveDeliveryId(active.id || active._id);
+      } else {
+        console.log('❌ Deliveries response not successful:', deliveriesRes.data);
       }
+
+      const historyRes = await axios.get(`${API_URL}/driver/deliveries/history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (historyRes.data.success) setHistoryDeliveries(historyRes.data.data);
+
+      const earningsRes = await axios.get(`${API_URL}/driver/earnings`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (earningsRes.data.success) {
+        setEarnings(earningsRes.data.data);
+        if (earningsRes.data.data.rates) {
+          setCommission(prev => ({
+            ...prev,
+            baseRatePerLiter: earningsRes.data.data.rates.baseRatePerLiter,
+            bonusPerDelivery: earningsRes.data.data.rates.bonusPerDelivery,
+            tipAverage:       earningsRes.data.data.rates.tipAverage,
+          }));
+        }
+      }
+
+      const perfRes = await axios.get(`${API_URL}/driver/performance`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (perfRes.data.success) setPerf(perfRes.data.data);
+
+      try {
+        console.log('🔔 Fetching notifications...');
+        const notifRes = await axios.get(`${API_URL}/driver/notifications`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (notifRes.data.success) {
+          console.log('🔔 Notifications count:', notifRes.data.data?.length || 0);
+          setNotifications(notifRes.data.data || []);
+        }
+      } catch (notifErr) {
+        console.error('Error fetching notifications:', notifErr);
+      }
+
+      try {
+        const commissionRes = await axios.get(`${API_URL}/admin/pricing/public`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (commissionRes.data.success) {
+          const c = commissionRes.data.data;
+          setCommission(prev => ({
+            ...prev,
+            baseRatePerLiter:  c.baseRatePerLiter  || 100,
+            bonusPerDelivery:  c.bonusPerDelivery  || 200,
+            tipAverage:        c.tipAverage        || 50,
+            commissionPercent: c.commissionPercent || 15,
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching commission:', err);
+      }
+
+      // ✅ Fetch withdrawal balance on initial load
+      await fetchWithdrawalBalance();
+
     } catch (err) {
-      console.error('Error fetching commission:', err);
+      console.error('Error fetching driver data:', err);
+      addToast('error', 'Failed to load dashboard data', err.response?.data?.message);
+      if (err.response?.status === 401) navigate('/driver-login');
+    } finally {
+      setLoading(false);
     }
-
-    
-
-  } catch (err) {
-    console.error('Error fetching driver data:', err);
-    addToast('error', 'Failed to load dashboard data', err.response?.data?.message);
-    if (err.response?.status === 401) navigate('/driver-login');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   useEffect(() => { fetchDriverData(); }, []);
 
-  // ✅ Poll notifications every 30 seconds for real-time updates
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -808,7 +824,7 @@ const DriverDashboard = () => {
   const pendingToday   = deliveries.filter(d => d.status === 'pending').length;
   const totalWater     = deliveries.filter(d => d.status === 'completed').reduce((a, d) => a + (d.amount || 0), 0);
   const activeDelivery = deliveries.find(d => (d.id === activeDeliveryId || d._id === activeDeliveryId) && d.status === 'in-progress');
-  const unreadCount    = notifications.filter(n => !n.read).length; // ✅
+  const unreadCount    = notifications.filter(n => !n.read).length;
 
   const TABS = [
     { id: 'today',    label: 'Today'    },
@@ -872,7 +888,6 @@ const DriverDashboard = () => {
                 {isOnline ? 'Online' : 'Offline'}
               </button>
 
-              {/* ✅ Notifications Bell with Real Panel */}
               <div className="relative">
                 <button
                   onClick={() => setShowNotifications(p => !p)}
@@ -976,7 +991,7 @@ const DriverDashboard = () => {
           </div>
         )}
 
-        {/* ✅ Unread notification banner */}
+        {/* Unread notification banner */}
         {unreadCount > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5 flex items-center gap-3">
             <FaBell className="text-blue-500 text-lg shrink-0 animate-pulse" />
@@ -1009,104 +1024,100 @@ const DriverDashboard = () => {
 
           <div className="p-5">
             {/* Today's Schedule */}
-           {activeTab === 'today' && (
-  <div>
-    <div className="flex justify-between items-center mb-4">
-      <h3 className="font-bold text-gray-800">Today's Schedule</h3>
-      <button onClick={() => setShowIncident(true)}
-        className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-800 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors font-medium">
-        <FaExclamationTriangle size={10} /> Report Incident
-      </button>
-    </div>
-    <div className="space-y-3">
-      {deliveries.length === 0 && (
-        <div className="text-center py-10 text-gray-400">
-          <FaCalendarAlt className="text-4xl mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No deliveries scheduled for today</p>
-        </div>
-      )}
-      {deliveries.map(d => (
-        <div key={d.id || d._id}
-          className={`rounded-xl border-2 p-4 transition-all
-            ${d.status === 'in-progress' ? 'border-green-400 bg-green-50' :
-              d.status === 'completed'   ? 'border-gray-100 bg-gray-50 opacity-80' :
-              d.status === 'approved'    ? 'border-blue-300 bg-blue-50/30' :
-              'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm'}`}>
-          <div className="flex flex-col md:flex-row justify-between items-start gap-3">
-            <div className="flex items-start gap-3 flex-1">
-              <div className={`p-2.5 rounded-xl shrink-0 ${
-                d.status === 'completed'   ? 'bg-green-100' :
-                d.status === 'in-progress' ? 'bg-yellow-100 animate-pulse' :
-                d.status === 'approved'    ? 'bg-blue-100' :
-                'bg-gray-100'}`}>
-                {d.status === 'completed'   ? <FaCheckCircle className="text-green-600" /> :
-                 d.status === 'in-progress' ? <FaClock className="text-yellow-600" /> :
-                 d.status === 'approved'    ? <FaCalendarAlt className="text-blue-600" /> :
-                 <FaCalendarAlt className="text-gray-500" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-gray-800">{d.location}</p>
-                  <span className="text-xs text-gray-400">{d.scheduledTime || d.time}</span>
+            {activeTab === 'today' && (
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-gray-800">Today's Schedule</h3>
+                  <button onClick={() => setShowIncident(true)}
+                    className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-800 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors font-medium">
+                    <FaExclamationTriangle size={10} /> Report Incident
+                  </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">{d.address}</p>
-                <p className="text-xs text-gray-500">{d.amount}L · {d.recipient}</p>
-                {d.notes && (
-                  <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-lg mt-1.5 inline-block max-w-full truncate">
-                    📋 {d.notes}
-                  </p>
-                )}
+                <div className="space-y-3">
+                  {deliveries.length === 0 && (
+                    <div className="text-center py-10 text-gray-400">
+                      <FaCalendarAlt className="text-4xl mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">No deliveries scheduled for today</p>
+                    </div>
+                  )}
+                  {deliveries.map(d => (
+                    <div key={d.id || d._id}
+                      className={`rounded-xl border-2 p-4 transition-all
+                        ${d.status === 'in-progress' ? 'border-green-400 bg-green-50' :
+                          d.status === 'completed'   ? 'border-gray-100 bg-gray-50 opacity-80' :
+                          d.status === 'approved'    ? 'border-blue-300 bg-blue-50/30' :
+                          'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm'}`}>
+                      <div className="flex flex-col md:flex-row justify-between items-start gap-3">
+                        <div className="flex items-start gap-3 flex-1">
+                          <div className={`p-2.5 rounded-xl shrink-0 ${
+                            d.status === 'completed'   ? 'bg-green-100' :
+                            d.status === 'in-progress' ? 'bg-yellow-100 animate-pulse' :
+                            d.status === 'approved'    ? 'bg-blue-100' :
+                            'bg-gray-100'}`}>
+                            {d.status === 'completed'   ? <FaCheckCircle className="text-green-600" /> :
+                             d.status === 'in-progress' ? <FaClock className="text-yellow-600" /> :
+                             d.status === 'approved'    ? <FaCalendarAlt className="text-blue-600" /> :
+                             <FaCalendarAlt className="text-gray-500" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold text-gray-800">{d.location}</p>
+                              <span className="text-xs text-gray-400">{d.scheduledTime || d.time}</span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5">{d.address}</p>
+                            <p className="text-xs text-gray-500">{d.amount}L · {d.recipient}</p>
+                            {d.notes && (
+                              <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-lg mt-1.5 inline-block max-w-full truncate">
+                                📋 {d.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap shrink-0">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold
+                            ${d.status === 'completed'   ? 'bg-green-100 text-green-700' :
+                              d.status === 'in-progress' ? 'bg-yellow-100 text-yellow-700' :
+                              d.status === 'approved'    ? 'bg-blue-100 text-blue-700' :
+                              'bg-gray-100 text-gray-600'}`}>
+                            {d.status === 'in-progress' ? 'In Progress' : 
+                             d.status === 'approved'    ? 'Approved' : 
+                             d.status.charAt(0).toUpperCase() + d.status.slice(1)}
+                          </span>
+                          
+                          {(d.status === 'pending' || d.status === 'approved' || d.status === 'in-progress') && (
+                            <button onClick={() => window.open(`tel:${d.phone}`)}
+                              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                              <FaPhone size={11} />
+                            </button>
+                          )}
+                          
+                          {(d.status === 'pending' || d.status === 'approved') && (
+                            <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`)}
+                              className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors">
+                              <FaMapMarkedAlt size={11} />
+                            </button>
+                          )}
+                          
+                          {(d.status === 'pending' || d.status === 'approved') && (
+                            <button onClick={() => startDelivery(d.id || d._id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors shadow-sm">
+                              <FaPlay size={9} /> Start
+                            </button>
+                          )}
+                          
+                          {d.status === 'in-progress' && (
+                            <button onClick={() => completeDelivery(d.id || d._id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 shadow-sm">
+                              <FaCheck size={9} /> Complete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap shrink-0">
-              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold
-                ${d.status === 'completed'   ? 'bg-green-100 text-green-700' :
-                  d.status === 'in-progress' ? 'bg-yellow-100 text-yellow-700' :
-                  d.status === 'approved'    ? 'bg-blue-100 text-blue-700' :
-                  'bg-gray-100 text-gray-600'}`}>
-                {d.status === 'in-progress' ? 'In Progress' : 
-                 d.status === 'approved'    ? 'Approved' : 
-                 d.status.charAt(0).toUpperCase() + d.status.slice(1)}
-              </span>
-              
-              {/* Phone button - show for pending, approved, or in-progress */}
-              {(d.status === 'pending' || d.status === 'approved' || d.status === 'in-progress') && (
-                <button onClick={() => window.open(`tel:${d.phone}`)}
-                  className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
-                  <FaPhone size={11} />
-                </button>
-              )}
-              
-              {/* Map/Navigate button - show for pending or approved */}
-              {(d.status === 'pending' || d.status === 'approved') && (
-                <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`)}
-                  className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors">
-                  <FaMapMarkedAlt size={11} />
-                </button>
-              )}
-              
-              {/* Start button - for pending or approved */}
-              {(d.status === 'pending' || d.status === 'approved') && (
-                <button onClick={() => startDelivery(d.id || d._id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors shadow-sm">
-                  <FaPlay size={9} /> Start
-                </button>
-              )}
-              
-              {/* Complete button - for in-progress */}
-              {d.status === 'in-progress' && (
-                <button onClick={() => completeDelivery(d.id || d._id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 shadow-sm">
-                  <FaCheck size={9} /> Complete
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+            )}
 
             {/* Live Map */}
             {activeTab === 'map' && (
@@ -1156,7 +1167,7 @@ const DriverDashboard = () => {
             )}
 
             {/* Earnings */}
-           {activeTab === 'earnings' && (
+            {activeTab === 'earnings' && (
               <div className="space-y-5">
 
                 {/* Period Selector */}
@@ -1195,8 +1206,12 @@ const DriverDashboard = () => {
                           {earnings[earningsPeriod]?.deliveries || 0} deliveries · {earnings[earningsPeriod]?.km || 0} km
                         </p>
                       </div>
+                      {/* ✅ UPDATED Withdraw button with fetchWithdrawalBalance */}
                       <button
-                        onClick={() => setShowWithdrawal(true)}
+                        onClick={async () => {
+                          await fetchWithdrawalBalance();
+                          setShowWithdrawal(true);
+                        }}
                         className="bg-white text-green-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-green-50 transition-colors shadow-lg flex items-center gap-1.5">
                         <FaMoneyBillWave size={12} /> Withdraw
                       </button>
@@ -1308,7 +1323,7 @@ const DriverDashboard = () => {
                 {/* Withdrawal Modal */}
                 {showWithdrawal && (
                   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-6">
+                    <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
                       <div className="flex justify-between items-center mb-5">
                         <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                           <FaMoneyBillWave className="text-green-600" /> Withdraw Earnings
@@ -1316,13 +1331,16 @@ const DriverDashboard = () => {
                         <button onClick={() => setShowWithdrawal(false)} className="text-gray-400 hover:text-gray-700">✕</button>
                       </div>
 
-                      {/* Available Balance */}
+                      {/* ✅ UPDATED Available Balance Section */}
                       <div className="bg-green-50 border border-green-100 rounded-xl p-4 mb-5">
-                        <p className="text-xs text-gray-500 font-medium">Available Balance</p>
+                        <p className="text-xs text-gray-500 font-medium mb-1">Available Balance</p>
                         <p className="text-3xl font-black text-green-600">
-                          ₦{(earnings.month?.total || 0).toLocaleString()}
+                          ₦{availableBalance.toLocaleString()}
                         </p>
-                        <p className="text-xs text-gray-400 mt-1">Based on this month's earnings</p>
+                        <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                          <span>Total earned: <strong className="text-green-600">₦{(availableBalance + totalWithdrawnAmount).toLocaleString()}</strong></span>
+                          <span>Withdrawn: <strong className="text-orange-500">₦{totalWithdrawnAmount.toLocaleString()}</strong></span>
+                        </div>
                       </div>
 
                       <div className="space-y-4">
@@ -1333,10 +1351,9 @@ const DriverDashboard = () => {
                             value={withdrawAmount}
                             onChange={e => setWithdrawAmount(e.target.value)}
                             placeholder="Enter amount"
-                            max={earnings.month?.total || 0}
+                            max={availableBalance}
                             className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
                           />
-                          {/* Quick amount buttons */}
                           <div className="flex gap-2 mt-2">
                             {[5000, 10000, 20000].map(amt => (
                               <button key={amt} onClick={() => setWithdrawAmount(String(amt))}
@@ -1344,7 +1361,7 @@ const DriverDashboard = () => {
                                 ₦{(amt/1000).toFixed(0)}K
                               </button>
                             ))}
-                            <button onClick={() => setWithdrawAmount(String(earnings.month?.total || 0))}
+                            <button onClick={() => setWithdrawAmount(String(availableBalance))}
                               className="flex-1 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-green-50 hover:text-green-700 transition-colors">
                               Max
                             </button>
@@ -1393,31 +1410,39 @@ const DriverDashboard = () => {
                             className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600 text-sm font-medium hover:bg-gray-50">
                             Cancel
                           </button>
+                          {/* ✅ UPDATED Submit Button onClick */}
                           <button
                             onClick={async () => {
                               if (!withdrawAmount || !withdrawBank || withdrawAccount.length !== 10) {
                                 addToast('error', 'Please fill all fields correctly');
                                 return;
                               }
-                              if (Number(withdrawAmount) > (earnings.month?.total || 0)) {
-                                addToast('error', 'Amount exceeds available balance');
-                                return;
-                              }
                               if (Number(withdrawAmount) < 1000) {
                                 addToast('error', 'Minimum withdrawal is ₦1,000');
+                                return;
+                              }
+                              if (Number(withdrawAmount) > availableBalance) {
+                                addToast('error', `Insufficient balance. Available: ₦${availableBalance.toLocaleString()}`);
                                 return;
                               }
                               try {
                                 setWithdrawing(true);
                                 const token = localStorage.getItem('token');
-                                await axios.post(`${API_URL}/driver/withdrawal`, {
-                                  amount:         Number(withdrawAmount),
-                                  bankName:       withdrawBank,
-                                  accountNumber:  withdrawAccount,
+                                await axios.post(`${API_URL}/withdrawals`, {
+                                  amount:        Number(withdrawAmount),
+                                  bankName:      withdrawBank,
+                                  accountNumber: withdrawAccount,
+                                  accountName:   '',
                                 }, { headers: { Authorization: `Bearer ${token}` } });
-                                addToast('success', 'Withdrawal request submitted!', 'Your payment will be processed within 24 hours.');
+
+                                addToast('success', 'Withdrawal request submitted!', 'Admin will review and approve shortly.');
                                 setShowWithdrawal(false);
-                                setWithdrawAmount(''); setWithdrawBank(''); setWithdrawAccount('');
+                                setWithdrawAmount('');
+                                setWithdrawBank('');
+                                setWithdrawAccount('');
+
+                                await fetchWithdrawalBalance();
+                                fetchDriverData();
                               } catch (err) {
                                 addToast('error', 'Withdrawal failed', err.response?.data?.message || 'Please try again.');
                               } finally {
@@ -1430,6 +1455,35 @@ const DriverDashboard = () => {
                           </button>
                         </div>
                       </div>
+
+                      {/* ✅ OPTIONAL Withdrawal History */}
+                      {withdrawalHistory.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          <p className="text-xs font-bold text-gray-500 uppercase mb-3">Recent Requests</p>
+                          <div className="space-y-2 max-h-40 overflow-y-auto">
+                            {withdrawalHistory.slice(0, 5).map(w => (
+                              <div key={w._id} className="flex justify-between items-center p-2.5 bg-gray-50 rounded-xl">
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-800">₦{w.amount?.toLocaleString()}</p>
+                                  <p className="text-[10px] text-gray-400">{w.bankName} · {w.accountNumber}</p>
+                                </div>
+                                <div className="text-right">
+                                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                                    w.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                    w.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                    'bg-yellow-100 text-yellow-700'
+                                  }`}>
+                                    {w.status === 'approved' ? '✅ Paid' : w.status === 'rejected' ? '❌ Rejected' : '⏳ Pending'}
+                                  </span>
+                                  <p className="text-[10px] text-gray-400 mt-0.5">
+                                    {new Date(w.createdAt).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

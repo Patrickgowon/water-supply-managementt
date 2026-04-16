@@ -962,6 +962,7 @@ const AdminDashboard = () => {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsPeriod, setAnalyticsPeriod]   = useState('month');
 
+// ✅ PUT IT HERE (after all useState)
   // ✅ PUT IT HERE (after all useState)
 
 
@@ -984,6 +985,16 @@ const AdminDashboard = () => {
 
   const [incidents, setIncidents]         = useState([]);
   const [incidentsLoading, setIncidentsLoading] = useState(false);
+
+
+// ✅ WITHDRAWAL STATE - Add after this line
+const [withdrawals, setWithdrawals]               = useState([]);
+const [withdrawalsLoading, setWithdrawalsLoading] = useState(false);
+const [withdrawalFilter, setWithdrawalFilter]     = useState('pending');
+const [rejectNote, setRejectNote]                 = useState('');
+const [showRejectModal, setShowRejectModal]       = useState(false);
+const [selectedWithdrawal, setSelectedWithdrawal] = useState(null);
+  
 
   // Fetch analytics function
   const fetchAnalytics = useCallback(async (period = 'month') => {
@@ -1018,12 +1029,68 @@ const AdminDashboard = () => {
     }
   }, [addToast]);
 
+
   // Fetch analytics when analytics tab is opened
   useEffect(() => {
     if (activeTab === 'analytics') {
       fetchAnalytics(analyticsPeriod);
     }
   }, [activeTab, analyticsPeriod, fetchAnalytics]);
+
+    // ─── WITHDRAWAL FUNCTIONS ──────────────────────────────────────────────────
+    const fetchWithdrawals = useCallback(async () => {
+      try {
+        setWithdrawalsLoading(true);
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${API_URL}/withdrawals?status=${withdrawalFilter}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data.success) setWithdrawals(res.data.data);
+      } catch (err) {
+        addToast('error', 'Failed to load withdrawals', err.response?.data?.message);
+      } finally {
+        setWithdrawalsLoading(false);
+      }
+    }, [withdrawalFilter, addToast]);
+  
+    useEffect(() => {
+      if (activeTab === 'withdrawals') fetchWithdrawals();
+    }, [activeTab, withdrawalFilter, fetchWithdrawals]);
+  
+    const handleApproveWithdrawal = async (id) => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.put(`${API_URL}/withdrawals/${id}/approve`,
+          { adminNote: 'Payment processed and sent' },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (res.data.success) {
+          addToast('success', 'Withdrawal approved!', 'Driver notified via app and email.');
+          fetchWithdrawals();
+        }
+      } catch (err) {
+        addToast('error', 'Failed to approve', err.response?.data?.message);
+      }
+    };
+  
+    const handleRejectWithdrawal = async (id, note) => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.put(`${API_URL}/withdrawals/${id}/reject`,
+          { adminNote: note || 'Rejected by admin' },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (res.data.success) {
+          addToast('warn', 'Withdrawal rejected.', 'Driver notified via app and email.');
+          setShowRejectModal(false);
+          setRejectNote('');
+          setSelectedWithdrawal(null);
+          fetchWithdrawals();
+        }
+      } catch (err) {
+        addToast('error', 'Failed to reject', err.response?.data?.message);
+      }
+    };
 
   // Fetch all dashboard data
   const fetchData = async () => {
@@ -1645,6 +1712,7 @@ const resolveIncident = async (driverId, incidentId) => {
                     { id:'tracking',  label:'Live Map',   icon:FaMapMarkedAlt,    badge:0 },
                     { id:'analytics', label:'Analytics',  icon:FaChartLine,       badge:0 },
                     { id:'incidents', label:'Incidents', icon:FaExclamationTriangle, badge: incidents.filter(i => i.status === 'pending').length },
+                    { id:'withdrawals', label:'Withdrawals', icon:FaMoneyBillWave, badge: withdrawals.filter(w => w.status === 'pending').length },
                   ].map(tab => (
                     <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                       className={`px-4 py-3 text-sm font-semibold whitespace-nowrap flex items-center gap-1.5 border-b-2 transition-colors
@@ -2244,147 +2312,191 @@ const resolveIncident = async (driverId, incidentId) => {
                     )}
                   </div>
                 )}
+
+                {activeTab === 'withdrawals' && (
+                    <div>
+                                    {/* ── Reject Modal ── */}
+                                    {showRejectModal && selectedWithdrawal && (
+                                      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                                        <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-6">
+                                          <h3 className="font-bold text-gray-800 text-lg mb-2">Reject Withdrawal</h3>
+                                          <p className="text-sm text-gray-500 mb-4">
+                                            Rejecting <strong>₦{selectedWithdrawal.amount?.toLocaleString()}</strong> for{' '}
+                                            <strong>{selectedWithdrawal.driver?.firstName} {selectedWithdrawal.driver?.lastName}</strong>
+                                          </p>
+                                          <textarea
+                                            value={rejectNote}
+                                            onChange={e => setRejectNote(e.target.value)}
+                                            placeholder="Reason for rejection (will be sent to driver)..."
+                                            rows={3}
+                                            className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-red-500 resize-none mb-4"
+                                          />
+                                          <div className="flex gap-3">
+                                            <button
+                                              onClick={() => { setShowRejectModal(false); setRejectNote(''); setSelectedWithdrawal(null); }}
+                                              className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600 text-sm font-medium hover:bg-gray-50">
+                                              Cancel
+                                            </button>
+                                            <button
+                                              onClick={() => handleRejectWithdrawal(selectedWithdrawal._id, rejectNote)}
+                                              className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700">
+                                              Reject & Notify
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* ── Header ── */}
+                                    <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+                                      <h3 className="font-bold text-gray-800">Withdrawal Requests</h3>
+                                      <div className="flex gap-2 flex-wrap">
+                                        {[
+                                          { id: 'pending',  label: 'Pending',  color: 'bg-yellow-500' },
+                                          { id: 'approved', label: 'Approved', color: 'bg-green-600'  },
+                                          { id: 'rejected', label: 'Rejected', color: 'bg-red-500'    },
+                                          { id: 'all',      label: 'All',      color: 'bg-gray-700'   },
+                                        ].map(f => (
+                                          <button key={f.id} onClick={() => setWithdrawalFilter(f.id)}
+                                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all
+                                              ${withdrawalFilter === f.id ? `${f.color} text-white shadow-md` : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                                            {f.label}
+                                          </button>
+                                        ))}
+                                        <button onClick={fetchWithdrawals}
+                                          className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-200">
+                                          🔄 Refresh
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {/* ── Content ── */}
+                                    {withdrawalsLoading ? (
+                                      <div className="flex items-center justify-center py-16">
+                                        <FaSpinner className="animate-spin text-green-600 text-3xl" />
+                                      </div>
+                                    ) : withdrawals.length === 0 ? (
+                                      <div className="text-center py-16 text-gray-400">
+                                        <FaMoneyBillWave className="text-5xl mx-auto mb-3 opacity-20" />
+                                        <p className="text-sm">No {withdrawalFilter === 'all' ? '' : withdrawalFilter} withdrawal requests</p>
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-4">
+                                        {withdrawals.map(w => (
+                                          <div key={w._id}
+                                            className={`rounded-xl border-2 p-4 transition-all ${
+                                              w.status === 'pending'  ? 'border-yellow-200 bg-yellow-50/30' :
+                                              w.status === 'approved' ? 'border-green-100 bg-green-50/20' :
+                                              'border-red-100 bg-gray-50 opacity-80'
+                                            }`}>
+                                            <div className="flex flex-col md:flex-row justify-between items-start gap-3">
+
+                                              {/* Left info */}
+                                              <div className="flex items-start gap-3 flex-1">
+                                                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold text-sm shrink-0">
+                                                  {w.driver?.firstName?.charAt(0)}{w.driver?.lastName?.charAt(0)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  {/* Name + status */}
+                                                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                    <p className="font-bold text-gray-800 text-sm">
+                                                      {w.driver?.firstName} {w.driver?.lastName}
+                                                    </p>
+                                                    <span className="text-xs text-gray-400">{w.driver?.tankerId}</span>
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                                      w.status === 'pending'  ? 'bg-yellow-100 text-yellow-700' :
+                                                      w.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                                      'bg-red-100 text-red-700'
+                                                    }`}>
+                                                      {w.status === 'pending' ? '⏳ Pending' : w.status === 'approved' ? '✅ Approved' : '❌ Rejected'}
+                                                    </span>
+                                                  </div>
+
+                                                  {/* Amount */}
+                                                  <p className="text-2xl font-black text-gray-800 mb-2">
+                                                    ₦{w.amount?.toLocaleString()}
+                                                  </p>
+
+                                                  {/* Bank details */}
+                                                  <div className="flex flex-wrap gap-3 text-xs text-gray-600 mb-2">
+                                                    <span className="flex items-center gap-1">🏦 {w.bankName}</span>
+                                                    <span className="flex items-center gap-1">💳 {w.accountNumber}</span>
+                                                    {w.accountName && <span className="flex items-center gap-1">👤 {w.accountName}</span>}
+                                                    <span className="flex items-center gap-1">📞 {w.driver?.phone}</span>
+                                                  </div>
+
+                                                  {/* ✅ Driver balance breakdown */}
+                                                  {w.driverBalance && (
+                                                    <div className="grid grid-cols-3 gap-2 bg-white rounded-xl p-3 border border-gray-100 mb-2">
+                                                      <div className="text-center">
+                                                        <p className="text-xs text-gray-400">Total Earned</p>
+                                                        <p className="text-sm font-black text-green-600">₦{w.driverBalance.totalEarnings.toLocaleString()}</p>
+                                                      </div>
+                                                      <div className="text-center border-x border-gray-100">
+                                                        <p className="text-xs text-gray-400">Withdrawn</p>
+                                                        <p className="text-sm font-black text-orange-500">₦{w.driverBalance.totalWithdrawn.toLocaleString()}</p>
+                                                      </div>
+                                                      <div className="text-center">
+                                                        <p className="text-xs text-gray-400">Available</p>
+                                                        <p className={`text-sm font-black ${w.driverBalance.available >= w.amount ? 'text-blue-600' : 'text-red-600'}`}>
+                                                          ₦{w.driverBalance.available.toLocaleString()}
+                                                        </p>
+                                                      </div>
+                                                    </div>
+                                                  )}
+
+                                                  {/* Insufficient balance warning */}
+                                                  {w.driverBalance && w.driverBalance.available < w.amount && w.status === 'pending' && (
+                                                    <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-700 mb-2 flex items-center gap-1">
+                                                      <FaExclamationTriangle size={10} />
+                                                      ⚠️ Insufficient balance! Driver earned ₦{w.driverBalance.totalEarnings.toLocaleString()} but requesting ₦{w.amount.toLocaleString()}
+                                                    </div>
+                                                  )}
+
+                                                  {/* Admin note */}
+                                                  {w.adminNote && (
+                                                    <p className={`text-xs px-2 py-1 rounded-lg inline-block mb-1 ${
+                                                      w.status === 'approved' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                                                    }`}>
+                                                      📝 {w.adminNote}
+                                                    </p>
+                                                  )}
+
+                                                  <p className="text-[10px] text-gray-400">
+                                                    Requested: {new Date(w.createdAt).toLocaleString()}
+                                                    {w.processedAt && ` · Processed: ${new Date(w.processedAt).toLocaleString()}`}
+                                                  </p>
+                                                </div>
+                                              </div>
+
+                                              {/* ✅ Action buttons — only for pending */}
+                                              {w.status === 'pending' && (
+                                                <div className="flex flex-col gap-2 shrink-0">
+                                                  <button
+                                                    onClick={() => handleApproveWithdrawal(w._id)}
+                                                    disabled={w.driverBalance && w.driverBalance.available < w.amount}
+                                                    className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                                                    <FaCheck size={10} /> Approve & Pay
+                                                  </button>
+                                                  <button
+                                                    onClick={() => { setSelectedWithdrawal(w); setShowRejectModal(true); }}
+                                                    className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors flex items-center gap-1.5">
+                                                    <FaTimes size={10} /> Reject
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                    </div>
+                )}
                   
                 {/* ANALYTICS TAB - Now properly inside the component */}
-                {activeTab === 'analytics' && (
-                  <div className="space-y-6">
-                    {/* Period Selector */}
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h3 className="font-bold text-gray-800 text-lg">Analytics Dashboard</h3>
-                      <div className="flex gap-2">
-                        {[
-                          { id: 'today',   label: 'Today'   },
-                          { id: 'week',    label: 'Week'    },
-                          { id: 'month',   label: 'Month'   },
-                          { id: 'quarter', label: 'Quarter' },
-                          { id: 'year',    label: 'Year'    },
-                        ].map(p => (
-                          <button key={p.id} onClick={() => setAnalyticsPeriod(p.id)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all
-                              ${analyticsPeriod === p.id
-                                ? 'bg-green-600 text-white shadow-md'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                            {p.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                
 
-                    {analyticsLoading ? (
-                      <div className="flex items-center justify-center py-20">
-                        <div className="text-center">
-                          <FaSpinner className="animate-spin text-green-600 text-4xl mx-auto mb-3" />
-                          <p className="text-gray-500 text-sm">Loading analytics...</p>
-                        </div>
-                      </div>
-                    ) : analytics ? (
-                      <>
-                        {/* Overview KPI Cards */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                          {[
-                            {
-                              label: 'Total Revenue',
-                              value: `₦${(analytics.overview.totalRevenue || 0).toLocaleString()}`,
-                              sub:   `₦${(analytics.overview.periodRevenue || 0).toLocaleString()} this ${analyticsPeriod}`,
-                              icon:  FaMoneyBillWave,
-                              color: 'bg-green-500',
-                            },
-                            {
-                              label: 'Completion Rate',
-                              value: `${analytics.overview.completionRate || 0}%`,
-                              sub:   `${analytics.overview.completedOrders} of ${analytics.overview.totalOrders} orders`,
-                              icon:  FaCheckCircle,
-                              color: 'bg-blue-500',
-                            },
-                            {
-                              label: 'Total Water',
-                              value: `${((analytics.overview.totalWater || 0) / 1000).toFixed(1)}KL`,
-                              sub:   `${analytics.overview.totalOrders} total orders`,
-                              icon:  FaTint,
-                              color: 'bg-cyan-500',
-                            },
-                            {
-                              label: 'New Students',
-                              value: analytics.overview.newStudents || 0,
-                              sub:   `${analytics.overview.totalStudents} total students`,
-                              icon:  FaUsers,
-                              color: 'bg-purple-500',
-                            },
-                          ].map(s => (
-                            <div key={s.label} className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-shadow">
-                              <div className="flex justify-between items-start mb-2">
-                                <div>
-                                  <p className="text-xs text-gray-500 font-medium">{s.label}</p>
-                                  <p className="text-2xl font-black text-gray-800 mt-1">{s.value}</p>
-                                </div>
-                                <div className={`${s.color} p-3 rounded-xl shrink-0`}>
-                                  <s.icon className="text-white text-lg" />
-                                </div>
-                              </div>
-                              <p className="text-xs text-green-600 font-medium">↑ {s.sub}</p>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Revenue Chart */}
-                        <div className="bg-white rounded-2xl shadow-md p-5">
-                          <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-gray-800">Revenue Over Time</h3>
-                            <span className="text-sm font-bold text-green-600">
-                              ₦{(analytics.revenue.totalRevenue || 0).toLocaleString()} total
-                            </span>
-                          </div>
-                          <div className="h-64">
-                            <Line
-                              data={{
-                                labels: analytics.revenue.labels.map(l => {
-                                  const d = new Date(l);
-                                  return d.toLocaleDateString('en-NG', { month: 'short', day: 'numeric' });
-                                }),
-                                datasets: [{
-                                  label:           'Revenue (₦)',
-                                  data:            analytics.revenue.revenues,
-                                  borderColor:     '#10B981',
-                                  backgroundColor: 'rgba(16,185,129,0.1)',
-                                  fill:            true,
-                                  tension:         0.4,
-                                }]
-                              }}
-                              options={{
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: { legend: { display: false } },
-                                scales: {
-                                  y: {
-                                    beginAtZero: true,
-                                    grid: { color: 'rgba(0,0,0,0.05)' },
-                                    ticks: { callback: v => `₦${(v/1000).toFixed(0)}K` }
-                                  },
-                                  x: { grid: { display: false } }
-                                }
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Add more analytics charts as needed */}
-                        <div className="text-center text-gray-500 py-8">
-                          <p>Additional analytics charts will appear here</p>
-                          <p className="text-xs mt-2">Order trends, user growth, hall breakdowns, driver performance, etc.</p>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-center py-20">
-                        <FaChartBar className="text-gray-300 text-5xl mx-auto mb-3" />
-                        <p className="text-gray-400">No analytics data available yet</p>
-                        <button onClick={() => fetchAnalytics(analyticsPeriod)}
-                          className="mt-3 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700">
-                          Load Analytics
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                
               </div>
             </div>
           </div>
