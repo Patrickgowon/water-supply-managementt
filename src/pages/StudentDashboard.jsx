@@ -79,43 +79,110 @@ const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearA
   };
 
   return (
-    <div ref={ref} className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
-        <h3 className="font-bold text-gray-800 text-sm">Notifications</h3>
-        <div className="flex items-center gap-2">
-          {notifications.some(n => !n.read) && (
-            <button onClick={onMarkRead} className="text-xs text-green-600 hover:text-green-700 font-medium">
-              Mark all read
-            </button>
-          )}
-          {notifications.length > 0 && (
-            <button onClick={onClearAll} className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
-              <FaTrashAlt size={10} /> Clear
-            </button>
+    <>
+      {/* Mobile Overlay */}
+      <div 
+        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40   sm:hidden transition-opacity duration-300
+          ${show ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={onClose}
+      />
+
+      {/* Notifications Panel */}
+      <div 
+        ref={ref}
+        className={`fixed sm:absolute sm:right-0 sm:top-12  mt-7
+          inset-y-0 left-0 sm:inset-y-auto sm:left-auto
+          w-72 xs:w-80 sm:w-80 
+          bg-white shadow-2xl border border-gray-100 z-50 overflow-hidden
+          transform transition-all duration-300 ease-in-out
+          sm:rounded-2xl
+          ${show ? 'translate-x-0' : '-translate-x-full'}
+          sm:transform-none sm:transition-none sm:translate-x-0
+          ${!show ? 'sm:hidden' : ''}`}>
+        
+        {/* Mobile Header with Close Button */}
+        <div className="sm:hidden flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+          <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+            Notifications
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                {notifications.filter(n => !n.read).length}
+              </span>
+            )}
+          </h3>
+          <button 
+            onClick={onClose}
+            className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center">
+            <FaTimes className="text-gray-600 text-sm" />
+          </button>
+        </div>
+
+        {/* Desktop Header */}
+        <div className="hidden sm:flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+          <h3 className="font-bold text-gray-800 text-sm">Notifications</h3>
+          <div className="flex items-center gap-2">
+            {notifications.some(n => !n.read) && (
+              <button onClick={onMarkRead} className="text-xs text-green-600 hover:text-green-700 font-medium">
+                Mark all read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button onClick={onClearAll} className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+                <FaTrashAlt size={10} /> Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Actions Bar */}
+        <div className="sm:hidden flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-white">
+          <div className="flex items-center gap-3">
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                {notifications.filter(n => !n.read).length} unread
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {notifications.some(n => !n.read) && (
+              <button onClick={onMarkRead} className="text-xs text-green-600 hover:text-green-700 font-medium">
+                Mark read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button onClick={onClearAll} className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+                <FaTrashAlt size={10} /> Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* List - with percentage height on mobile */}
+        <div className="h-full sm:max-h-80 overflow-y-auto">
+          {notifications.length === 0 ? (
+            <div className="py-12 sm:py-8 text-center">
+              <FaBell className="text-gray-300 text-4xl sm:text-3xl mx-auto mb-3 sm:mb-2" />
+              <p className="text-sm text-gray-400">No notifications</p>
+            </div>
+          ) : (
+            notifications.map(n => (
+              <div key={n.id} 
+                className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!n.read ? 'bg-blue-50/40' : ''}`}>
+                {getIcon(n.type)}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm sm:text-xs font-semibold text-gray-800 ${!n.read ? 'font-bold' : ''}`}>
+                    {n.title}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
+                  <p className="text-[11px] sm:text-[10px] text-gray-400 mt-1.5 sm:mt-1">{n.time}</p>
+                </div>
+                {!n.read && <span className="w-2.5 h-2.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full shrink-0 mt-1" />}
+              </div>
+            ))
           )}
         </div>
       </div>
-      <div className="max-h-80 overflow-y-auto">
-        {notifications.length === 0 ? (
-          <div className="py-8 text-center">
-            <FaBell className="text-gray-300 text-3xl mx-auto mb-2" />
-            <p className="text-sm text-gray-400">No notifications</p>
-          </div>
-        ) : (
-          notifications.map(n => (
-            <div key={n.id} className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!n.read ? 'bg-blue-50/40' : ''}`}>
-              {getIcon(n.type)}
-              <div className="flex-1 min-w-0">
-                <p className={`text-xs font-semibold text-gray-800 ${!n.read ? 'font-bold' : ''}`}>{n.title}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
-                <p className="text-[10px] text-gray-400 mt-1">{n.time}</p>
-              </div>
-              {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-1" />}
-            </div>
-          ))
-        )}
-      </div>
-    </div>
+    </>
   );
 };
 
@@ -763,10 +830,10 @@ const StudentDashboard = () => {
       </div>
 
       {/* Mobile: Actions Row */}
-      <div className="flex md:hidden items-center gap-1.5">
+      <div className="flex md:hidden  items-center gap-1.5">
         {/* Request Water Button - Mobile */}
         <button onClick={() => setShowRequestModal(true)}
-          className="flex items-center gap-1 px-2.5 py-1.5 bg-green-600 text-white rounded-lg text-[11px] font-semibold hover:bg-green-700 transition-colors">
+          className="hidden md:flex items-center gap-1 px-2.5 py-1.5 bg-green-600 text-white rounded-lg text-[11px] font-semibold hover:bg-green-700 transition-colors">
           <FaPlus size={9} /> Request
         </button>
 

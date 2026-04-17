@@ -100,14 +100,11 @@ const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearA
     return 'ℹ️';
   };
 
-  
-      
-
   return (
     <>
       {/* Mobile Overlay */}
       <div 
-        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 sm:hidden  transition-opacity duration-300
+        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 sm:hidden transition-opacity duration-300
           ${show ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
@@ -115,15 +112,27 @@ const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearA
       {/* Notifications Panel */}
       <div 
         ref={ref}
-        className={`fixed sm:absolute sm:right-0 sm:top-12 inset-y-0 left-0 w-72 xs:w-80 sm:w-80 
+        className={`fixed 
+          inset-y-0 left-0 mt-7
+          sm:inset-y-auto sm:left-auto sm:top-12 sm:right-4
+          w-72 xs:w-80 sm:w-80 
           bg-white shadow-2xl border border-gray-100 z-50 overflow-hidden
-          transform transition-transform duration-300 ease-in-out
-          sm:rounded-2xl sm:translate-x-0 sm:transition-none
-          ${show ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}`}>
+          transform transition-all duration-300 ease-in-out
+          sm:rounded-2xl
+          ${show ? 'translate-x-0' : '-translate-x-full'}
+          sm:transform-none sm:transition-none sm:translate-x-0
+          ${!show ? 'sm:hidden' : ''}`}>
         
         {/* Mobile Header with Close Button */}
         <div className="sm:hidden flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
-          <h3 className="font-bold text-gray-800 text-sm">Notifications</h3>
+          <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+            Notifications
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                {notifications.filter(n => !n.read).length}
+              </span>
+            )}
+          </h3>
           <button 
             onClick={onClose}
             className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center">
@@ -131,7 +140,7 @@ const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearA
           </button>
         </div>
 
-        {/* Header */}
+        {/* Desktop Header */}
         <div className="hidden sm:flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
           <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
             Notifications
@@ -182,8 +191,8 @@ const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearA
           </div>
         </div>
 
-        {/* List */}
-        <div className="max-h-[calc(100vh-120px)] sm:max-h-80 overflow-y-auto">
+        {/* List - using h-full for mobile percentage height */}
+        <div className="h-full sm:max-h-80 overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="py-12 sm:py-8 text-center">
               <FaBell className="text-gray-300 text-4xl sm:text-3xl mx-auto mb-3 sm:mb-2" />
