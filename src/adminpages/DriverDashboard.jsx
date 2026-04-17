@@ -10,7 +10,7 @@ import {
   FaStar, FaChartBar, FaMoneyBillWave, FaExclamationTriangle,
   FaCamera, FaSignature, FaToggleOn, FaToggleOff,
   FaGasPump, FaThumbsUp, FaHistory, FaChevronRight,
-  FaBolt, FaShieldAlt, FaTools, FaHeadset, FaKey, FaSpinner,
+  FaBolt, FaShieldAlt, FaTools, FaHeadset, FaKey, FaSpinner,FaBars,
   FaTrashAlt
 } from 'react-icons/fa';
 import { MdOutlineWaterDrop, MdSpeed, MdDirections, MdWarning } from 'react-icons/md';
@@ -100,63 +100,117 @@ const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearA
     return 'ℹ️';
   };
 
+  
+      
+
   return (
-    <div ref={ref}
-      className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
-        <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-          Notifications
-          {notifications.filter(n => !n.read).length > 0 && (
-            <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-              {notifications.filter(n => !n.read).length}
-            </span>
-          )}
-        </h3>
-        <div className="flex items-center gap-2">
-          {notifications.some(n => !n.read) && (
-            <button onClick={onMarkRead}
-              className="text-xs text-green-600 hover:text-green-700 font-medium">
-              Mark all read
-            </button>
-          )}
-          {notifications.length > 0 && (
-            <button onClick={onClearAll}
-              className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
-              <FaTrashAlt size={9} /> Clear
-            </button>
+    <>
+      {/* Mobile Overlay */}
+      <div 
+        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 sm:hidden  transition-opacity duration-300
+          ${show ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={onClose}
+      />
+
+      {/* Notifications Panel */}
+      <div 
+        ref={ref}
+        className={`fixed sm:absolute sm:right-0 sm:top-12 inset-y-0 left-0 w-72 xs:w-80 sm:w-80 
+          bg-white shadow-2xl border border-gray-100 z-50 overflow-hidden
+          transform transition-transform duration-300 ease-in-out
+          sm:rounded-2xl sm:translate-x-0 sm:transition-none
+          ${show ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}`}>
+        
+        {/* Mobile Header with Close Button */}
+        <div className="sm:hidden flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+          <h3 className="font-bold text-gray-800 text-sm">Notifications</h3>
+          <button 
+            onClick={onClose}
+            className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center">
+            <FaTimes className="text-gray-600 text-sm" />
+          </button>
+        </div>
+
+        {/* Header */}
+        <div className="hidden sm:flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+          <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+            Notifications
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                {notifications.filter(n => !n.read).length}
+              </span>
+            )}
+          </h3>
+          <div className="flex items-center gap-2">
+            {notifications.some(n => !n.read) && (
+              <button onClick={onMarkRead}
+                className="text-xs text-green-600 hover:text-green-700 font-medium">
+                Mark all read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button onClick={onClearAll}
+                className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+                <FaTrashAlt size={9} /> Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Actions Bar */}
+        <div className="sm:hidden flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-white">
+          <div className="flex items-center gap-3">
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                {notifications.filter(n => !n.read).length} unread
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {notifications.some(n => !n.read) && (
+              <button onClick={onMarkRead}
+                className="text-xs text-green-600 hover:text-green-700 font-medium">
+                Mark read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button onClick={onClearAll}
+                className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+                <FaTrashAlt size={9} /> Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* List */}
+        <div className="max-h-[calc(100vh-120px)] sm:max-h-80 overflow-y-auto">
+          {notifications.length === 0 ? (
+            <div className="py-12 sm:py-8 text-center">
+              <FaBell className="text-gray-300 text-4xl sm:text-3xl mx-auto mb-3 sm:mb-2" />
+              <p className="text-sm text-gray-400">No notifications</p>
+            </div>
+          ) : (
+            notifications.map((n, i) => (
+              <div key={n._id || n.id || i}
+                className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors
+                  ${!n.read ? 'bg-blue-50/40' : ''}`}>
+                <span className="text-lg sm:text-base shrink-0 mt-0.5">{getIcon(n.type)}</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm sm:text-xs text-gray-800 ${!n.read ? 'font-bold' : 'font-semibold'}`}>
+                    {n.title}
+                  </p>
+                  <p className="text-xs sm:text-xs text-gray-500 mt-0.5 leading-relaxed">{n.message}</p>
+                  <p className="text-[11px] sm:text-[10px] text-gray-400 mt-1.5 sm:mt-1">
+                    {n.createdAt ? new Date(n.createdAt).toLocaleString() : 'Just now'}
+                  </p>
+                </div>
+                {!n.read && <span className="w-2.5 h-2.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full shrink-0 mt-1.5" />}
+              </div>
+            ))
           )}
         </div>
       </div>
-
-      {/* List */}
-      <div className="max-h-80 overflow-y-auto">
-        {notifications.length === 0 ? (
-          <div className="py-8 text-center">
-            <FaBell className="text-gray-300 text-3xl mx-auto mb-2" />
-            <p className="text-sm text-gray-400">No notifications</p>
-          </div>
-        ) : (
-          notifications.map((n, i) => (
-            <div key={n._id || n.id || i}
-              className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors
-                ${!n.read ? 'bg-blue-50/40' : ''}`}>
-              <span className="text-base shrink-0 mt-0.5">{getIcon(n.type)}</span>
-              <div className="flex-1 min-w-0">
-                <p className={`text-xs text-gray-800 ${!n.read ? 'font-bold' : 'font-semibold'}`}>
-                  {n.title}
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{n.message}</p>
-                <p className="text-[10px] text-gray-400 mt-1">
-                  {n.createdAt ? new Date(n.createdAt).toLocaleString() : 'Just now'}
-                </p>
-              </div>
-              {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-1.5" />}
-            </div>
-          ))
-        )}
-      </div>
-    </div>
+    </>
   );
 };
 
@@ -538,6 +592,8 @@ const DriverDashboard = () => {
   const [totalWithdrawnAmount, setTotalWithdrawnAmount] = useState(0);
   const [withdrawalHistory, setWithdrawalHistory] = useState([]);
 
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
   // ─── Fetch withdrawal balance ──────────────────────────────────────────────
   const fetchWithdrawalBalance = async () => {
     try {
@@ -861,65 +917,187 @@ const DriverDashboard = () => {
         addToast={addToast} onSave={saveSettings}
       />
 
-      {/* ── Header ── */}
-      <header className="bg-white shadow-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-green-600 rounded-xl flex items-center justify-center shadow-md">
-                <FaTruck className="text-xl text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-gray-800 leading-none">Driver Dashboard</h1>
-                <p className="text-xs text-gray-400 mt-0.5">Shift: <span className="font-mono font-semibold text-green-600">{shiftTime}</span></p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button onClick={() => setShowIncident(true)}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors">
-                <FaExclamationTriangle size={11} /> Report Incident
-              </button>
-
-              <button onClick={toggleOnline}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
-                  ${isOnline ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
-                {isOnline ? 'Online' : 'Offline'}
-              </button>
-
-              <div className="relative">
-                <button
-                  onClick={() => setShowNotifications(p => !p)}
-                  className="relative w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
-                  <FaBell className="text-gray-500 text-sm" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-                <NotificationsPanel
-                  show={showNotifications}
-                  onClose={() => setShowNotifications(false)}
-                  notifications={notifications}
-                  onMarkRead={markAllRead}
-                  onClearAll={clearAllNotifications}
-                />
-              </div>
-
-              <button onClick={() => setShowSettings(true)}
-                className="w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
-                <FaCog className="text-gray-500 text-sm" />
-              </button>
-
-              <div className="h-9 w-9 bg-gradient-to-br from-green-600 to-emerald-700 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                {driverInfo.name.split(' ').map(n => n[0]).join('')}
-              </div>
-            </div>
-          </div>
+   
+<header className="bg-white shadow-md sticky top-0 z-40">
+  <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+    <div className="flex justify-between items-center">
+      
+      {/* Left: Logo and Title */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="h-8 w-8 sm:h-10 sm:w-10 bg-green-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md">
+          <FaTruck className="text-base sm:text-xl text-white" />
         </div>
-      </header>
+        <div>
+          <h1 className="text-xs sm:text-sm md:text-lg font-bold text-gray-800 leading-none">
+            Driver Dashboard
+          </h1>
+          <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
+            Shift: <span className="font-mono font-semibold text-green-600">{shiftTime}</span>
+          </p>
+        </div>
+      </div>
+
+      {/* Right: Desktop Actions (hidden on mobile) */}
+      <div className="hidden sm:flex items-center gap-2">
+        <button onClick={() => setShowIncident(true)}
+          className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors">
+          <FaExclamationTriangle size={11} /> Report Incident
+        </button>
+
+        <button onClick={toggleOnline}
+          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold border transition-all
+            ${isOnline ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+          <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+          <span className="hidden sm:inline">{isOnline ? 'Online' : 'Offline'}</span>
+        </button>
+
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifications(p => !p)}
+            className="relative w-8 h-8 sm:w-9 sm:h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
+            <FaBell className="text-gray-500 text-xs sm:text-sm" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-red-500 text-white text-[9px] sm:text-[10px] rounded-full flex items-center justify-center font-bold">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          <NotificationsPanel
+            show={showNotifications}
+            onClose={() => setShowNotifications(false)}
+            notifications={notifications}
+            onMarkRead={markAllRead}
+            onClearAll={clearAllNotifications}
+          />
+        </div>
+
+        <button onClick={() => setShowSettings(true)}
+          className="w-8 h-8 sm:w-9 sm:h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
+          <FaCog className="text-gray-500 text-xs sm:text-sm" />
+        </button>
+
+        <div className="h-8 w-8 sm:h-9 sm:w-9 bg-gradient-to-br from-green-600 to-emerald-700 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm">
+          {driverInfo.name.split(' ').map(n => n[0]).join('')}
+        </div>
+      </div>
+
+      {/* Mobile: Hamburger Menu Button + Profile */}
+      <div className="flex sm:hidden items-center gap-2">
+        {/* Notification Bell - Mobile */}
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifications(p => !p)}
+            className="relative w-8 h-8 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
+            <FaBell className="text-gray-500 text-xs" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          <NotificationsPanel
+            show={showNotifications}
+            onClose={() => setShowNotifications(false)}
+            notifications={notifications}
+            onMarkRead={markAllRead}
+            onClearAll={clearAllNotifications}
+          />
+        </div>
+
+        {/* Profile Avatar */}
+        <div className="h-8 w-8 bg-gradient-to-br from-green-600 to-emerald-700 rounded-full flex items-center justify-center text-white font-bold text-xs">
+          {driverInfo.name.split(' ').map(n => n[0]).join('')}
+        </div>
+
+        {/* Hamburger Button */}
+        <button
+          onClick={() => setShowMobileMenu(true)}
+          className="w-8 h-8 bg-gray-100 hover:bg-green-100 rounded-lg flex items-center justify-center transition-colors">
+          <FaBars className="text-gray-600 text-sm" />
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {/* Mobile Slide-out Menu Overlay */}
+  {showMobileMenu && (
+    <div 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 sm:hidden"
+      onClick={() => setShowMobileMenu(false)}
+    />
+  )}
+
+  {/* Mobile Slide-out Menu - Slides from RIGHT */}
+{/* Mobile Slide-out Menu - Slides from LEFT */}
+<div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out sm:hidden
+  ${showMobileMenu ? 'translate-x-0' : '-translate-x-full'}`}>
+  
+  {/* Menu Header */}
+  <div className="flex items-center justify-between p-4 border-b border-gray-100">
+    <h3 className="font-bold text-gray-800">Menu</h3>
+    <button
+      onClick={() => setShowMobileMenu(false)}
+      className="w-8 h-8 bg-gray-100 hover:bg-red-50 rounded-lg flex items-center justify-center transition-colors">
+      <FaTimes className="text-gray-600 text-sm" />
+    </button>
+  </div>
+
+  {/* Menu Items */}
+  <div className="p-4 space-y-3">
+    {/* Online/Offline Toggle */}
+    <button 
+      onClick={() => {
+        toggleOnline();
+        setShowMobileMenu(false);
+      }}
+      className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all
+        ${isOnline ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+      <span className="flex items-center gap-2">
+        <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+        <span className={`text-sm font-medium ${isOnline ? 'text-green-700' : 'text-gray-600'}`}>
+          {isOnline ? 'Online' : 'Offline'}
+        </span>
+      </span>
+      <span className="text-xs text-gray-400">Tap to toggle</span>
+    </button>
+
+    {/* Report Incident */}
+    <button 
+      onClick={() => {
+        setShowIncident(true);
+        setShowMobileMenu(false);
+      }}
+      className="w-full flex items-center gap-3 p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition-colors">
+      <FaExclamationTriangle size={14} />
+      <span className="text-sm font-medium">Report Incident</span>
+    </button>
+
+    {/* Settings */}
+    <button 
+      onClick={() => {
+        setShowSettings(true);
+        setShowMobileMenu(false);
+      }}
+      className="w-full flex items-center gap-3 p-3 bg-gray-50 text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
+      <FaCog size={14} />
+      <span className="text-sm font-medium">Settings</span>
+    </button>
+
+    {/* Driver Info */}
+    <div className="mt-4 pt-4 border-t border-gray-100">
+      <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
+        <div className="h-10 w-10 bg-gradient-to-br from-green-600 to-emerald-700 rounded-full flex items-center justify-center text-white font-bold text-sm">
+          {driverInfo.name.split(' ').map(n => n[0]).join('')}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-800 text-sm truncate">{driverInfo.name}</p>
+          <p className="text-xs text-gray-500 truncate">{driverInfo.id}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Active Delivery Banner */}
@@ -1026,7 +1204,7 @@ const DriverDashboard = () => {
             {/* Today's Schedule */}
             {activeTab === 'today' && (
               <div>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between text-sm items-center mb-4">
                   <h3 className="font-bold text-gray-800">Today's Schedule</h3>
                   <button onClick={() => setShowIncident(true)}
                     className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-800 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors font-medium">
@@ -1172,14 +1350,14 @@ const DriverDashboard = () => {
 
                 {/* Period Selector */}
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-gray-800">My Earnings</h3>
+                  <h3 className="font-bold text-sm text-gray-800">Earnings</h3>
                   <div className="flex gap-1.5">
                     {[
                       { id: 'today', label: 'Today' },
                       { id: 'week',  label: 'Week'  },
                       { id: 'month', label: 'Month' },
                     ].map(p => (
-                      <button key={p.id} onClick={() => setEarningsPeriod(p.id)}
+                      <button  key={p.id} onClick={() => setEarningsPeriod(p.id)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all
                           ${earningsPeriod === p.id
                             ? 'bg-green-600 text-white shadow-md'
@@ -1194,12 +1372,12 @@ const DriverDashboard = () => {
                 <div className="bg-gradient-to-br from-green-600 to-emerald-700 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                   <div className="relative">
-                    <div className="flex justify-between items-start mb-4">
+                    <div className="flex justify-between items-start flex-wrap  mb-4">
                       <div>
-                        <p className="text-green-100 text-xs font-medium uppercase tracking-wide mb-1">
+                        <p className="text-green-100 text-xs  font-medium uppercase tracking-wide mb-1">
                           {earningsPeriod === 'today' ? "Today's" : earningsPeriod === 'week' ? "This Week's" : "This Month's"} Earnings
                         </p>
-                        <p className="text-4xl font-black">
+                        <p className="sm:text-4xl text-1xl font-black">
                           ₦{(earnings[earningsPeriod]?.total || 0).toLocaleString()}
                         </p>
                         <p className="text-green-100 text-sm mt-1">
@@ -1212,13 +1390,13 @@ const DriverDashboard = () => {
                           await fetchWithdrawalBalance();
                           setShowWithdrawal(true);
                         }}
-                        className="bg-white text-green-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-green-50 transition-colors shadow-lg flex items-center gap-1.5">
+                        className="bg-white text-green-700 px-4 py-2  rounded-xl text-xs font-black hover:bg-green-50 transition-colors shadow-lg flex items-center gap-1.5">
                         <FaMoneyBillWave size={12} /> Withdraw
                       </button>
                     </div>
 
                     {/* Breakdown */}
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-3 gap-3 ">
                       {[
                         { label: 'Base Pay', val: earnings[earningsPeriod]?.base  || 0, icon: '💼' },
                         { label: 'Bonus',    val: earnings[earningsPeriod]?.bonus || 0, icon: '🎯' },
@@ -1226,7 +1404,7 @@ const DriverDashboard = () => {
                       ].map(({ label, val, icon }) => (
                         <div key={label} className="bg-white/15 rounded-xl p-3 backdrop-blur-sm">
                           <p className="text-xs text-green-100">{icon} {label}</p>
-                          <p className="font-black text-lg">₦{val.toLocaleString()}</p>
+                          <p className="font-black sm:text-lg text-xs">₦{val.toLocaleString()}</p>
                         </div>
                       ))}
                     </div>
@@ -1325,7 +1503,7 @@ const DriverDashboard = () => {
                   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
                       <div className="flex justify-between items-center mb-5">
-                        <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <h3 className="text-xl hidden font-bold text-gray-800 flex items-center gap-2">
                           <FaMoneyBillWave className="text-green-600" /> Withdraw Earnings
                         </h3>
                         <button onClick={() => setShowWithdrawal(false)} className="text-gray-400 hover:text-gray-700">✕</button>
@@ -1426,7 +1604,7 @@ const DriverDashboard = () => {
                                 return;
                               }
                               try {
-                                setWithdrawing(true);
+                                seting(true);
                                 const token = localStorage.getItem('token');
                                 await axios.post(`${API_URL}/withdrawals`, {
                                   amount:        Number(withdrawAmount),

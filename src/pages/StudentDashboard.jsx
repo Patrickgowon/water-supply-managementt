@@ -9,7 +9,8 @@ import {
   FaStopwatch, FaCog, FaToggleOn, FaToggleOff,
   FaTimes, FaEdit, FaSave, FaChevronRight,
   FaShieldAlt, FaTrash, FaKey, FaSignOutAlt, FaSpinner,
-  FaCheck, FaExclamationCircle, FaInfoCircle, FaTrashAlt
+  FaCheck, FaExclamationCircle, FaInfoCircle, FaTrashAlt,
+  FaBars, 
 } from 'react-icons/fa';
 import { MdOutlineWaterDrop, MdOutlinePayment, MdNotifications, MdSecurity } from 'react-icons/md';
 import { Line } from 'react-chartjs-2';
@@ -191,6 +192,7 @@ const StudentDashboard = () => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showUserMenu, setShowUserMenu]           = useState(false);
   const userMenuRef = useRef(null);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   // ── Notifications ────────────────────────────────────────────────────────
   const [notifications, setNotifications] = useState([
@@ -221,7 +223,6 @@ const StudentDashboard = () => {
   const handleSavePreferences = async (newSettings) => {
     try {
       const token = localStorage.getItem('token');
-      // Update all settings
       await axios.put(`${API_URL}/student/settings`, newSettings, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -248,10 +249,10 @@ const StudentDashboard = () => {
   const [showPw, setShowPw]           = useState({ current: false, new: false, confirm: false });
 
   const [pricing, setPricing] = useState({
-  price500L:  5000,
-  price1000L: 9000,
-  price1500L: 12000,
-});
+    price500L:  5000,
+    price1000L: 9000,
+    price1500L: 12000,
+  });
 
   useEffect(() => {
     if (user) {
@@ -273,10 +274,10 @@ const StudentDashboard = () => {
   }, []);
 
   const quantityPrices = {
-  '500 Liters (Standard)':   pricing.price500L,
-  '1000 Liters (Large)':     pricing.price1000L,
-  '1500 Liters (Extra Large)': pricing.price1500L,
-};
+    '500 Liters (Standard)':   pricing.price500L,
+    '1000 Liters (Large)':     pricing.price1000L,
+    '1500 Liters (Extra Large)': pricing.price1500L,
+  };
 
   // Paystack check
   useEffect(() => {
@@ -316,11 +317,9 @@ const StudentDashboard = () => {
       if (response.data.success) {
         const settingsData = response.data.data;
         setSettings(settingsData);
-        // Merge notification settings
         if (settingsData.notifications) {
           setNotifSettings(prev => ({ ...prev, ...settingsData.notifications }));
         }
-        // Merge preferences
         if (settingsData.preferences) {
           setNotifSettings(prev => ({ ...prev, ...settingsData.preferences }));
         }
@@ -332,90 +331,81 @@ const StudentDashboard = () => {
 
   // Fetch user and settings
   useEffect(() => {
-   const fetchUser = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      addToast('error', 'Session expired', 'Please log in again');
-      setTimeout(() => navigate('/login', { replace: true }), 1000);
-      return;
-    }
-
-    // Try to get user from localStorage first
-    const stored = localStorage.getItem('user');
-    if (stored) {
+    const fetchUser = async () => {
       try {
-        const parsedUser = JSON.parse(stored);
-        setUser(parsedUser);
-      } catch(e) {}
-    }
+        const token = localStorage.getItem('token');
+        if (!token) {
+          addToast('error', 'Session expired', 'Please log in again');
+          setTimeout(() => navigate('/login', { replace: true }), 1000);
+          return;
+        }
 
-    // ✅ Fetch live pricing from public endpoint (no admin role required)
-    try {
-      const pricingRes = await axios.get(`${API_URL}/admin/pricing/public`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (pricingRes.data.success) {
-        const p = pricingRes.data.data;
-        setPricing({
-          price500L:  p.price500L  || 5000,
-          price1000L: p.price1000L || 9000,
-          price1500L: p.price1500L || 12000,
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          try {
+            const parsedUser = JSON.parse(stored);
+            setUser(parsedUser);
+          } catch(e) {}
+        }
+
+        try {
+          const pricingRes = await axios.get(`${API_URL}/admin/pricing/public`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (pricingRes.data.success) {
+            const p = pricingRes.data.data;
+            setPricing({
+              price500L:  p.price500L  || 5000,
+              price1000L: p.price1000L || 9000,
+              price1500L: p.price1500L || 12000,
+            });
+          }
+        } catch (pricingErr) {
+          console.error('Error fetching pricing:', pricingErr);
+        }
+
+        try {
+          const notifRes = await axios.get(`${API_URL}/student/notifications`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const inAppNotifs = notifRes.data.notifications || notifRes.data.data?.notifications || [];
+          if (inAppNotifs.length > 0) {
+            setNotifications(inAppNotifs.map(n => ({
+              id:      n._id || n.id,
+              type:    n.type || 'info',
+              title:   n.title,
+              message: n.message,
+              time:    n.createdAt ? new Date(n.createdAt).toLocaleString() : 'Just now',
+              read:    n.read || false,
+            })));
+          }
+        } catch (notifErr) {
+          console.error('Error fetching notifications:', notifErr);
+        }
+
+        const response = await axios.get(`${API_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true
         });
+
+        if (response.data?.data) {
+          setUser(response.data.data);
+          localStorage.setItem('user', JSON.stringify(response.data.data));
+          await fetchFullProfile();
+        }
+
+        await fetchSettings();
+
+      } catch (err) {
+        if (err.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setTimeout(() => navigate('/login', { replace: true }), 1500);
+        }
+      } finally {
+        setLoading(false);
       }
-    } catch (pricingErr) {
-      console.error('Error fetching pricing:', pricingErr);
-    }
-
-    // Fetch in-app notifications from backend
-    try {
-      const notifRes = await axios.get(`${API_URL}/student/notifications`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      const inAppNotifs = notifRes.data.notifications || notifRes.data.data?.notifications || [];
-
-      if (inAppNotifs.length > 0) {
-        setNotifications(inAppNotifs.map(n => ({
-          id:      n._id || n.id,
-          type:    n.type || 'info',
-          title:   n.title,
-          message: n.message,
-          time:    n.createdAt ? new Date(n.createdAt).toLocaleString() : 'Just now',
-          read:    n.read || false,
-        })));
-      }
-    } catch (notifErr) {
-      console.error('Error fetching notifications:', notifErr);
-    }
-
-    // Fetch fresh user data from auth/me
-    const response = await axios.get(`${API_URL}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-      withCredentials: true
-    });
-
-    if (response.data?.data) {
-      setUser(response.data.data);
-      localStorage.setItem('user', JSON.stringify(response.data.data));
-
-      // After getting basic user, fetch full profile
-      await fetchFullProfile();
-    }
-
-    // Fetch user settings
-    await fetchSettings();
-
-  } catch (err) {
-    if (err.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setTimeout(() => navigate('/login', { replace: true }), 1500);
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+    };
     fetchUser();
   }, [navigate, addToast]);
 
@@ -506,7 +496,6 @@ const StudentDashboard = () => {
     finally { localStorage.removeItem('token'); localStorage.removeItem('user'); setTimeout(() => navigate('/login', { replace: true }), 100); }
   };
 
-  // ─── UPDATE PROFILE (PUT /api/student/profile) ───────────────────────────
   const handleProfileSave = async () => {
     try {
       setSavingProfile(true);
@@ -519,7 +508,6 @@ const StudentDashboard = () => {
         setUser(updatedUser); 
         localStorage.setItem('user', JSON.stringify(updatedUser));
         addToast('success', 'Profile updated successfully');
-        // Refresh full profile
         await fetchFullProfile();
       }
     } catch (err) { 
@@ -529,32 +517,30 @@ const StudentDashboard = () => {
     }
   };
 
-  // ─── CHANGE PASSWORD (PUT /api/student/change-password) ──────────────────
   const handlePasswordChange = async () => {
-  if (pwForm.newPassword !== pwForm.confirmPassword) return addToast('error', 'New passwords do not match');
-  if (pwForm.newPassword.length < 8) return addToast('error', 'Password must be at least 8 characters');
-  try {
-    setSavingPassword(true);
-    const token = localStorage.getItem('token');
-    const res = await axios.put(`${API_URL}/student/change-password`, {
-      currentPassword: pwForm.currentPassword,
-      newPassword:     pwForm.newPassword,
-      confirmPassword: pwForm.confirmPassword,  // ← this was missing
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (res.data.success) {
-      addToast('success', 'Password changed successfully');
-      setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    if (pwForm.newPassword !== pwForm.confirmPassword) return addToast('error', 'New passwords do not match');
+    if (pwForm.newPassword.length < 8) return addToast('error', 'Password must be at least 8 characters');
+    try {
+      setSavingPassword(true);
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`${API_URL}/student/change-password`, {
+        currentPassword: pwForm.currentPassword,
+        newPassword:     pwForm.newPassword,
+        confirmPassword: pwForm.confirmPassword,
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        addToast('success', 'Password changed successfully');
+        setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }
+    } catch (err) {
+      addToast('error', 'Failed to change password', err.response?.data?.message);
+    } finally {
+      setSavingPassword(false);
     }
-  } catch (err) {
-    addToast('error', 'Failed to change password', err.response?.data?.message);
-  } finally {
-    setSavingPassword(false);
-  }
-};
+  };
 
-  // ─── UPDATE NOTIFICATION SETTINGS (PUT /api/student/settings/notifications) ──
   const updateNotificationSettings = async (newNotifSettings) => {
     try {
       const token = localStorage.getItem('token');
@@ -570,7 +556,6 @@ const StudentDashboard = () => {
     }
   };
 
-  // ─── UPDATE PREFERENCES (PUT /api/student/settings/preferences) ───────────
   const updatePreferences = async (newPreferences) => {
     try {
       const token = localStorage.getItem('token');
@@ -586,7 +571,6 @@ const StudentDashboard = () => {
     }
   };
 
-  // ─── RESET SETTINGS TO DEFAULTS (PUT /api/student/settings/reset) ─────────
   const resetSettingsToDefaults = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -608,7 +592,6 @@ const StudentDashboard = () => {
     }
   };
 
-  // ─── TOGGLE HANDLER WITH API CALL ─────────────────────────────────────────
   const handleToggleNotifSetting = async (key) => {
     const newValue = !notifSettings[key];
     const update = { [key]: newValue };
@@ -670,7 +653,6 @@ const StudentDashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
       <Toast toasts={toasts} removeToast={removeToast} />
 
-      {/* Settings Modal */}
       <SettingsModal
         show={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
@@ -680,110 +662,279 @@ const StudentDashboard = () => {
       />
 
       {/* ─── HEADER ─────────────────────────────────────────────────────────── */}
-      <header className="bg-white shadow-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            {/* Logo */}
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-green-600 rounded-lg flex items-center justify-center shadow-md">
-                <MdOutlineWaterDrop className="text-xl text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-gray-800 leading-none">Student Dashboard</h1>
-                <p className="text-xs text-gray-400 hidden md:block">PLASU HydroTrack</p>
-              </div>
-            </div>
+    
 
-            {/* Right side */}
-            <div className="flex items-center gap-2">
 
-              {/* Request Water Button */}
-              <button onClick={() => setShowRequestModal(true)}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-semibold hover:bg-green-700 transition-colors shadow-sm">
-                <FaPlus size={10} /> Request Water
-              </button>
-
-              {/* Settings / Preferences */}
-              <button onClick={() => setShowSettingsModal(true)}
-                className="w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors"
-                title="Preferences">
-                <FaCog className="text-gray-500 text-sm" />
-              </button>
-
-              {/* Notifications */}
-              <div className="relative">
-                <button
-                  onClick={() => { setShowNotifications(p => !p); setShowUserMenu(false); }}
-                  className="relative w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors"
-                  title="Notifications">
-                  <FaBell className="text-gray-500 text-sm" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-                <NotificationsPanel
-                  show={showNotifications}
-                  onClose={() => setShowNotifications(false)}
-                  notifications={notifications}
-                  onMarkRead={markAllRead}
-                  onClearAll={clearAllNotifications}
-                />
-              </div>
-
-              {/* User Avatar + Dropdown */}
-              <div className="relative" ref={userMenuRef}>
-                <button
-                  onClick={() => { setShowUserMenu(p => !p); setShowNotifications(false); }}
-                  className="flex items-center gap-2 hover:bg-gray-50 rounded-xl px-2 py-1 transition-colors">
-                  <div className="h-9 w-9 bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
-                    {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
-                  </div>
-                  <div className="hidden md:block text-left">
-                    <p className="text-sm font-semibold text-gray-800 leading-none">{user.firstName} {user.lastName}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{user.matricNumber}</p>
-                  </div>
-                </button>
-
-                {/* Logout Button */}
-                <button onClick={handleLogout}
-                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-500 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-xl transition-colors font-medium">
-                  <FaSignOutAlt size={12} />
-                  <span>Logout</span>
-                </button>
-
-                {/* User Avatar + Dropdown */}
-                <div className="relative" ref={userMenuRef}></div>
-
-                {/* Dropdown menu */}
-                {showUserMenu && (
-                  <div className="absolute right-0 top-12 w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
-                    <div className="px-4 py-3 bg-green-50 border-b border-green-100">
-                      <p className="text-sm font-bold text-gray-800">{user.firstName} {user.lastName}</p>
-                      <p className="text-xs text-gray-500">{user.email}</p>
-                    </div>
-                    {[
-                      { label: '👤 My Profile',  action: () => { setActiveTab('profile');  setShowUserMenu(false); } },
-                      { label: '⚙️ Settings',    action: () => { setActiveTab('settings'); setShowUserMenu(false); } },
-                      { label: '📋 My Requests', action: () => { setActiveTab('requests'); setShowUserMenu(false); } },
-                    ].map(({ label, action }) => (
-                      <button key={label} onClick={action}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
-                        {label}
-                      </button>
-                    ))}
-                    <button onClick={handleLogout}
-                      className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium flex items-center gap-2">
-                      <FaSignOutAlt size={12} /> Sign Out
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+<header className="bg-white shadow-md sticky top-0 z-40">
+  <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
+    <div className="flex justify-between items-center">
+      
+      {/* Left: Logo and Title */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="h-8 w-8 sm:h-10 sm:w-10 bg-green-600 rounded-lg flex items-center justify-center shadow-md">
+          <MdOutlineWaterDrop className="text-base sm:text-xl text-white" />
         </div>
-      </header>
+        <div>
+          <h1 className="text-sm sm:text-lg font-bold text-gray-800 leading-none">
+            Student Dashboard
+          </h1>
+          <p className="text-[10px] sm:text-xs text-gray-400 hidden sm:block">PLASU HydroTrack</p>
+        </div>
+      </div>
+
+      {/* Right: Desktop Actions */}
+      <div className="hidden md:flex items-center gap-2">
+        <button onClick={() => setShowRequestModal(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-semibold hover:bg-green-700 transition-colors shadow-sm">
+          <FaPlus size={10} /> Request Water
+        </button>
+
+        <button onClick={() => setShowSettingsModal(true)}
+          className="w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors"
+          title="Preferences">
+          <FaCog className="text-gray-500 text-sm" />
+        </button>
+
+        <div className="relative">
+          <button
+            onClick={() => { setShowNotifications(p => !p); setShowUserMenu(false); }}
+            className="relative w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors"
+            title="Notifications">
+            <FaBell className="text-gray-500 text-sm" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          <NotificationsPanel
+            show={showNotifications}
+            onClose={() => setShowNotifications(false)}
+            notifications={notifications}
+            onMarkRead={markAllRead}
+            onClearAll={clearAllNotifications}
+          />
+        </div>
+
+        {/* User Avatar + Dropdown */}
+        <div className="relative" ref={userMenuRef}>
+          <button
+            onClick={() => { setShowUserMenu(p => !p); setShowNotifications(false); }}
+            className="flex items-center gap-2 hover:bg-gray-50 rounded-xl px-2 py-1 transition-colors">
+            <div className="h-9 w-9 bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
+              {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
+            </div>
+            <div className="hidden lg:block text-left">
+              <p className="text-sm font-semibold text-gray-800 leading-none">{user.firstName} {user.lastName}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{user.matricNumber}</p>
+            </div>
+          </button>
+
+          {/* Dropdown menu */}
+          {showUserMenu && (
+            <div className="absolute right-0 top-12 w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+              <div className="px-4 py-3 bg-green-50 border-b border-green-100">
+                <p className="text-sm font-bold text-gray-800">{user.firstName} {user.lastName}</p>
+                <p className="text-xs text-gray-500">{user.email}</p>
+              </div>
+              {[
+                { label: '👤 My Profile',  action: () => { setActiveTab('profile');  setShowUserMenu(false); } },
+                { label: '⚙️ Settings',    action: () => { setActiveTab('settings'); setShowUserMenu(false); } },
+                { label: '📋 My Requests', action: () => { setActiveTab('requests'); setShowUserMenu(false); } },
+              ].map(({ label, action }) => (
+                <button key={label} onClick={action}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+                  {label}
+                </button>
+              ))}
+              <button onClick={handleLogout}
+                className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium flex items-center gap-2">
+                <FaSignOutAlt size={12} /> Sign Out
+              </button>
+            </div>
+          )}
+        </div>
+
+        <button onClick={handleLogout}
+          className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-500 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-xl transition-colors font-medium">
+          <FaSignOutAlt size={12} />
+          <span>Logout</span>
+        </button>
+      </div>
+
+      {/* Mobile: Actions Row */}
+      <div className="flex md:hidden items-center gap-1.5">
+        {/* Request Water Button - Mobile */}
+        <button onClick={() => setShowRequestModal(true)}
+          className="flex items-center gap-1 px-2.5 py-1.5 bg-green-600 text-white rounded-lg text-[11px] font-semibold hover:bg-green-700 transition-colors">
+          <FaPlus size={9} /> Request
+        </button>
+
+        {/* Notification Bell - Mobile */}
+        <div className="relative">
+          <button
+            onClick={() => { setShowNotifications(p => !p); setShowUserMenu(false); }}
+            className="relative w-8 h-8 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
+            <FaBell className="text-gray-500 text-xs" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          <NotificationsPanel
+            show={showNotifications}
+            onClose={() => setShowNotifications(false)}
+            notifications={notifications}
+            onMarkRead={markAllRead}
+            onClearAll={clearAllNotifications}
+          />
+        </div>
+
+        {/* Profile Avatar - Mobile */}
+        <div className="relative" ref={userMenuRef}>
+          <button
+            onClick={() => { setShowUserMenu(p => !p); setShowNotifications(false); }}
+            className="h-8 w-8 bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0">
+            {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
+          </button>
+
+          {/* Mobile User Dropdown */}
+          {showUserMenu && (
+            <div className="absolute right-0 top-10 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+              <div className="px-3 py-2.5 bg-green-50 border-b border-green-100">
+                <p className="text-xs font-bold text-gray-800">{user.firstName} {user.lastName}</p>
+                <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
+              </div>
+              {[
+                { label: '👤 Profile',  action: () => { setActiveTab('profile');  setShowUserMenu(false); } },
+                { label: '⚙️ Settings', action: () => { setActiveTab('settings'); setShowUserMenu(false); } },
+                { label: '📋 Requests', action: () => { setActiveTab('requests'); setShowUserMenu(false); } },
+              ].map(({ label, action }) => (
+                <button key={label} onClick={action}
+                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+                  {label}
+                </button>
+              ))}
+              <button onClick={handleLogout}
+                className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium flex items-center gap-2">
+                <FaSignOutAlt size={10} /> Sign Out
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Hamburger Menu Button */}
+        <button
+          onClick={() => setShowMobileMenu(true)}
+          className="w-8 h-8 bg-gray-100 hover:bg-green-100 rounded-lg flex items-center justify-center transition-colors">
+          <FaBars className="text-gray-600 text-sm" />
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {/* Mobile Slide-out Menu Overlay */}
+  {showMobileMenu && (
+    <div 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 md:hidden transition-opacity duration-300"
+      onClick={() => setShowMobileMenu(false)}
+    />
+  )}
+
+  {/* Mobile Slide-out Menu - Slides from LEFT */}
+  <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-2xl z-50 transform transition-all duration-300 ease-in-out md:hidden
+    ${showMobileMenu ? 'translate-x-0' : '-translate-x-full'}`}>
+    
+    {/* Menu Header */}
+    <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
+      <div className="flex items-center gap-2">
+        <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center">
+          <MdOutlineWaterDrop className="text-white text-sm" />
+        </div>
+        <h3 className="font-bold text-gray-800 text-sm">Menu</h3>
+      </div>
+      <button
+        onClick={() => setShowMobileMenu(false)}
+        className="w-8 h-8 bg-white hover:bg-red-50 rounded-lg flex items-center justify-center transition-colors shadow-sm">
+        <FaTimes className="text-gray-600 text-xs" />
+      </button>
+    </div>
+
+    {/* User Info in Menu */}
+    <div className="p-4 border-b border-gray-100 bg-gray-50">
+      <div className="flex items-center gap-3">
+        <div className="h-12 w-12 bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center text-white font-bold text-base shrink-0">
+          {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-gray-800 text-sm truncate">{user.firstName} {user.lastName}</p>
+          <p className="text-xs text-gray-500 truncate">{user.matricNumber}</p>
+          <p className="text-[10px] text-gray-400 truncate">{user.email}</p>
+        </div>
+      </div>
+    </div>
+
+    {/* Menu Items */}
+    <div className="p-4 space-y-2">
+      {/* Request Water */}
+      <button 
+        onClick={() => {
+          setShowRequestModal(true);
+          setShowMobileMenu(false);
+        }}
+        className="w-full flex items-center gap-3 p-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors shadow-sm">
+        <FaPlus size={14} />
+        <span className="text-sm font-medium">Request Water</span>
+      </button>
+
+      {/* Settings */}
+      <button 
+        onClick={() => {
+          setShowSettingsModal(true);
+          setShowMobileMenu(false);
+        }}
+        className="w-full flex items-center gap-3 p-3 bg-gray-50 text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
+        <FaCog size={14} />
+        <span className="text-sm font-medium">Settings</span>
+      </button>
+
+      {/* Divider */}
+      <div className="my-2 border-t border-gray-100"></div>
+
+      {/* Navigation Items */}
+      {[
+        { label: '👤 My Profile',  tab: 'profile' },
+        { label: '📋 My Requests', tab: 'requests' },
+        { label: '💰 Payments',    tab: 'payments' },
+      ].map(({ label, tab }) => (
+        <button 
+          key={tab}
+          onClick={() => {
+            setActiveTab(tab);
+            setShowMobileMenu(false);
+          }}
+          className="w-full flex items-center gap-3 p-3 text-gray-700 hover:bg-gray-50 rounded-xl transition-colors text-left">
+          <span className="text-sm font-medium">{label}</span>
+        </button>
+      ))}
+
+      {/* Divider */}
+      <div className="my-2 border-t border-gray-100"></div>
+
+      {/* Logout */}
+      <button 
+        onClick={() => {
+          handleLogout();
+          setShowMobileMenu(false);
+        }}
+        className="w-full flex items-center gap-3 p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition-colors">
+        <FaSignOutAlt size={14} />
+        <span className="text-sm font-medium">Sign Out</span>
+      </button>
+    </div>
+  </div>
+</header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Banner */}
@@ -881,7 +1032,6 @@ const StudentDashboard = () => {
                   </div>
                 </div>
 
-                {/* Quick notification preview */}
                 {unreadCount > 0 && (
                   <div>
                     <div className="flex justify-between items-center mb-3">
@@ -926,7 +1076,13 @@ const StudentDashboard = () => {
                           <td className="px-4 py-3 text-sm text-gray-800">{new Date(r.deliveryDate).toLocaleDateString()}<br /><span className="text-xs text-gray-400">{r.preferredTime}</span></td>
                           <td className="px-4 py-3 text-sm font-semibold text-gray-800">{r.quantity}</td>
                           <td className="px-4 py-3 text-sm text-gray-700">{r.tanker}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{r.driver}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {r.driver
+                              ? typeof r.driver === 'object'
+                                ? `${r.driver.firstName || ''} ${r.driver.lastName || ''}`.trim() || r.driver.tankerId || '—'
+                                : r.driver
+                              : '—'}
+                          </td>
                           <td className="px-4 py-3 text-sm font-semibold text-green-600">₦{r.amount?.toLocaleString() || quantityPrices[r.quantity]?.toLocaleString()}</td>
                           <td className="px-4 py-3"><span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">Completed</span></td>
                         </tr>
@@ -1040,7 +1196,6 @@ const StudentDashboard = () => {
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-5">Account Settings</h3>
 
-                {/* Sub Tabs */}
                 <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
                   {[
                     ['profile',       '👤 Edit Profile'],
@@ -1206,7 +1361,6 @@ const StudentDashboard = () => {
                       </div>
                     ))}
 
-                    {/* Plan info */}
                     <div className="mt-6 p-4 bg-green-50 rounded-xl border border-green-100">
                       <p className="text-sm font-semibold text-gray-800 mb-1">Current Plan: {activePlan}</p>
                       <p className="text-xs text-gray-500 mb-3">Upgrade to get more water deliveries per month at a better rate.</p>
@@ -1255,15 +1409,15 @@ const StudentDashboard = () => {
                       }}
                     className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                     <option value="">Select quantity</option>
-                        <option value="500 Liters (Standard)">
-                          500 Liters (Standard) - ₦{pricing.price500L.toLocaleString()}
-                        </option>
-                        <option value="1000 Liters (Large)">
-                          1000 Liters (Large) - ₦{pricing.price1000L.toLocaleString()}
-                        </option>
-                        <option value="1500 Liters (Extra Large)">
-                          1500 Liters (Extra Large) - ₦{pricing.price1500L.toLocaleString()}
-                        </option>
+                    <option value="500 Liters (Standard)">
+                      500 Liters (Standard) - ₦{pricing.price500L.toLocaleString()}
+                    </option>
+                    <option value="1000 Liters (Large)">
+                      1000 Liters (Large) - ₦{pricing.price1000L.toLocaleString()}
+                    </option>
+                    <option value="1500 Liters (Extra Large)">
+                      1500 Liters (Extra Large) - ₦{pricing.price1500L.toLocaleString()}
+                    </option>
                   </select>
                 </div>
                 <div className="bg-green-50 p-3 rounded-xl">
