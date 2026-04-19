@@ -160,8 +160,10 @@ const DriverRegisterPage = () => {
         confirmPassword:  formData.confirmPassword,
       });
       setRegisterStatus({ type: 'success', message: response.data.message });
-      success('Registration successful! Redirecting to login...');
-      setTimeout(() => navigate('/driver-login'), 3000);
+  
+          success('Registration successful! Redirecting to login...');
+        localStorage.clear(); // ← clear any token from registration
+        setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
       console.error('❌ Driver registration error:', err);
       const msg =

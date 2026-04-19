@@ -1073,11 +1073,11 @@ const StudentDashboard = () => {
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Weekly Consumption</h3>
+                  <h3 className="sm:text-lg text-sm font-semibold text-gray-800 mb-4">Weekly Consumption</h3>
                   <div className="h-64"><Line data={consumptionData} options={chartOptions} /></div>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Upcoming Deliveries</h3>
+                  <h3 className="sm:text-lg text-sm font-semibold text-gray-800 mb-4">Upcoming Deliveries</h3>
                   <div className="space-y-3">
                     {requests.filter(r => r.status === 'scheduled' || r.status === 'assigned').slice(0, 3).map(r => (
                       <div key={r._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
@@ -1102,7 +1102,7 @@ const StudentDashboard = () => {
                 {unreadCount > 0 && (
                   <div>
                     <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-lg font-semibold text-gray-800">Recent Notifications</h3>
+                      <h3 className="sm:text-lg text-sm font-semibold text-gray-800">Recent Notifications</h3>
                       <button onClick={markAllRead} className="text-xs text-green-600 font-medium hover:text-green-700">Mark all read</button>
                     </div>
                     <div className="space-y-2">
@@ -1127,7 +1127,7 @@ const StudentDashboard = () => {
             {/* ── History ── */}
             {activeTab === 'history' && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Delivery History</h3>
+                <h3 className="sm:text-lg text-sm font-semibold text-gray-800 mb-4"></h3>
                 <div className="overflow-x-auto rounded-xl border border-gray-100">
                   <table className="w-full">
                     <thead className="bg-gray-50">
@@ -1141,7 +1141,7 @@ const StudentDashboard = () => {
                       {requests.filter(r => r.status === 'completed').map(r => (
                         <tr key={r._id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3 text-sm text-gray-800">{new Date(r.deliveryDate).toLocaleDateString()}<br /><span className="text-xs text-gray-400">{r.preferredTime}</span></td>
-                          <td className="px-4 py-3 text-sm font-semibold text-gray-800">{r.quantity}</td>
+                          <td className="px-4 py-3 sm:text-sm text-xs font-semibold text-gray-800">{r.quantity}</td>
                           <td className="px-4 py-3 text-sm text-gray-700">{r.tanker}</td>
                           <td className="px-4 py-3 text-sm text-gray-700">
                             {r.driver
@@ -1167,9 +1167,9 @@ const StudentDashboard = () => {
             {activeTab === 'requests' && (
               <div>
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800">My Water Requests</h3>
+                  <h3 className="sm:text-lg text-sm font-semibold text-gray-800">My Water Requests</h3>
                   <button onClick={() => setShowRequestModal(true)}
-                    className="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:from-green-700 hover:to-green-800 flex items-center gap-2">
+                    className="bg-gradient-to-r sm:text-lg text-xs from-green-600 to-green-700 text-white px-4 py-2 rounded-xl  font-semibold hover:from-green-700 hover:to-green-800 flex items-center gap-2">
                     <FaPlus size={11} /> New Request
                   </button>
                 </div>
@@ -1184,7 +1184,7 @@ const StudentDashboard = () => {
                       <div key={r._id} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <p className="font-semibold text-gray-800">Request #{r._id.slice(-6).toUpperCase()}</p>
+                            <p className="font-semibold text-sm text-gray-800">Request #{r._id.slice(-6).toUpperCase()}</p>
                             <p className="text-sm text-gray-500">{new Date(r.deliveryDate).toLocaleDateString()} at {r.preferredTime}</p>
                           </div>
                           <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -1215,20 +1215,20 @@ const StudentDashboard = () => {
             {/* ── Profile ── */}
             {activeTab === 'profile' && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-5">Profile Information</h3>
+                <h3 className="sm:text-lg text-sm font-semibold text-gray-800 mb-5">Profile Information</h3>
                 <div className="flex items-center gap-4 mb-6 p-4 bg-green-50 rounded-xl border border-green-100">
-                  <div className="h-16 w-16 bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center text-white font-bold text-2xl shrink-0">
+                  <div className="sm:h-16 sm:w-16 h-10 w-10 text-sm bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center text-white font-bold sm:text-2xl shrink-0">
                     {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-gray-800">{user.firstName} {user.lastName}</p>
-                    <p className="text-sm text-gray-500">{user.email}</p>
+                    <p className="sm:text-xl text-sm font-bold text-gray-800">{user.firstName} {user.lastName}</p>
+                    <p className="sm:text-sm text-xs text-gray-500">{user.email}</p>
                     <span className={`mt-1 inline-block text-xs px-2 py-0.5 rounded-full font-medium ${user.isVerified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                       {user.isVerified ? '✓ Verified' : '⚠ Not Verified'}
                     </span>
                   </div>
                 </div>
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-2 gap-4 sm:text-xl text-sm">
                   {[
                     { icon: <FaIdCard className="text-green-600 text-xl" />,        label: 'Matric Number', val: user.matricNumber },
                     { icon: <FaGraduationCap className="text-green-600 text-xl" />, label: 'Department',    val: user.department || 'Not set' },
@@ -1261,7 +1261,7 @@ const StudentDashboard = () => {
             {/* ── Settings ── */}
             {activeTab === 'settings' && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-5">Account Settings</h3>
+                <h3 className="sm:text-lg text-sm font-semibold text-gray-800 mb-5">Account Settings</h3>
 
                 <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
                   {[

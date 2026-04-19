@@ -12,7 +12,7 @@ import {
   FaDollarSign, FaChartLine, FaUserTie,
   FaMapMarkedAlt, FaCrosshairs, FaLayerGroup,
   FaBullhorn, FaSignOutAlt,
-  FaBolt, FaSpinner, FaIdCard, FaCar, FaShieldAlt,
+  FaBolt, FaSpinner, FaIdCard, FaCar, FaShieldAlt,FaBars,
   FaBan, FaMapMarkerAlt, FaCalendarAlt,
   FaExclamationCircle, FaPercentage, FaTag,
 } from 'react-icons/fa';
@@ -434,347 +434,350 @@ const [savingPricing, setSavingPricing] = useState(false);
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9997] p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex max-h-[90vh]">
-        <div className="w-52 bg-gray-50 border-r border-gray-100 p-4 flex flex-col shrink-0">
-          <div className="flex items-center gap-2 mb-5">
-            <FaCog className="text-green-600" />
-            <span className="font-bold text-gray-800">Admin Settings</span>
-          </div>
-          {SECS.map(s => (
-            <button key={s.id} onClick={() => setSection(s.id)}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium mb-1 text-left transition-all
-                ${section === s.id ? 'bg-green-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-200'}`}>
-              <span>{s.ico}</span>{s.label}
-            </button>
-          ))}
-          <button onClick={onClose}
-            className="mt-auto flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-xl">
-            <FaTimes size={12} /> Close
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <FaSpinner className="animate-spin text-green-600 text-3xl" />
-            </div>
-          ) : (
-            <>
-              {section === 'profile' && (
-                <div>
-                  <h4 className="font-bold text-gray-800 text-lg mb-5">Admin Profile</h4>
-                  <div className="flex items-center gap-4 mb-6 p-4 bg-green-50 rounded-xl border border-green-100">
-                    <div className="w-14 h-14 bg-gradient-to-br from-green-600 to-emerald-700 rounded-full flex items-center justify-center text-white text-xl font-black">
-                      {adminInfo.firstName?.charAt(0)}{adminInfo.lastName?.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-800">{adminInfo.firstName} {adminInfo.lastName}</p>
-                      <p className="text-sm text-gray-500">{adminInfo.email}</p>
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Administrator</span>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium mb-1 block">First Name</label>
-                        <input value={adminInfo.firstName}
-                          onChange={e => setAdminInfo(p => ({...p, firstName: e.target.value}))}
-                          className={inputClass} placeholder="First name" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium mb-1 block">Last Name</label>
-                        <input value={adminInfo.lastName}
-                          onChange={e => setAdminInfo(p => ({...p, lastName: e.target.value}))}
-                          className={inputClass} placeholder="Last name" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 font-medium mb-1 block">Phone Number</label>
-                      <input value={adminInfo.phone}
-                        onChange={e => setAdminInfo(p => ({...p, phone: e.target.value}))}
-                        className={inputClass} placeholder="Phone number" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 font-medium mb-1 block">Email</label>
-                      <input value={adminInfo.email} disabled
-                        className={`${inputClass} bg-gray-50 text-gray-400 cursor-not-allowed`} />
-                      <p className="text-xs text-gray-400 mt-1">Email cannot be changed.</p>
-                    </div>
-                    <button onClick={handleProfileSave} disabled={saving}
-                      className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                      {saving ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Profile'}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {section === 'password' && (
-                <div>
-                  <h4 className="font-bold text-gray-800 text-lg mb-5">Change Password</h4>
-                  <div className="space-y-4">
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
-                      🔒 Password must be at least 8 characters long.
-                    </div>
-                    {[
-                      { key: 'currentPassword', label: 'Current Password',     show: 'current' },
-                      { key: 'newPassword',     label: 'New Password',         show: 'new'     },
-                      { key: 'confirmPassword', label: 'Confirm New Password', show: 'confirm' },
-                    ].map(({ key, label, show }) => (
-                      <div key={key}>
-                        <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
-                        <div className="relative">
-                          <input
-                            type={showPw[show] ? 'text' : 'password'}
-                            value={pwForm[key]}
-                            onChange={e => setPwForm(p => ({...p, [key]: e.target.value}))}
-                            className={`${inputClass} pr-10`}
-                            placeholder={label}
-                          />
-                          <button type="button"
-                            onClick={() => setShowPw(p => ({...p, [show]: !p[show]}))}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">
-                            {showPw[show] ? '🙈' : '👁️'}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {pwForm.newPassword && (
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-gray-500">Password strength</span>
-                          <span className={pwForm.newPassword.length >= 12 ? 'text-green-600 font-semibold' : pwForm.newPassword.length >= 8 ? 'text-yellow-600 font-semibold' : 'text-red-600 font-semibold'}>
-                            {pwForm.newPassword.length >= 12 ? 'Strong' : pwForm.newPassword.length >= 8 ? 'Good' : 'Too short'}
-                          </span>
-                        </div>
-                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full transition-all duration-300 ${pwForm.newPassword.length >= 12 ? 'w-full bg-green-500' : pwForm.newPassword.length >= 8 ? 'w-2/3 bg-yellow-500' : 'w-1/3 bg-red-500'}`} />
-                        </div>
-                      </div>
-                    )}
-                    {pwForm.confirmPassword && (
-                      <p className={`text-xs font-medium flex items-center gap-1 ${pwForm.newPassword === pwForm.confirmPassword ? 'text-green-600' : 'text-red-500'}`}>
-                        {pwForm.newPassword === pwForm.confirmPassword ? '✅ Passwords match' : '❌ Passwords do not match'}
-                      </p>
-                    )}
-                    <button onClick={handlePasswordChange}
-                      disabled={saving || !pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword}
-                      className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                      {saving ? <><FaSpinner className="animate-spin" /> Changing...</> : '🔑 Change Password'}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {section === 'notifications' && (
-                <div>
-                  <h4 className="font-bold text-gray-800 text-lg mb-4">Notification Preferences</h4>
-                  <TR label="New Order Alerts"     sub="Notify when a student places an order"  k="orderAlerts" />
-                  <TR label="Driver Status Alerts" sub="When drivers go online/offline"         k="driverAlerts" />
-                  <TR label="Payment Alerts"       sub="Confirmed and failed payments"          k="paymentAlerts" />
-                  <TR label="Incident Alerts"      sub="Driver-reported incidents"              k="incidentAlerts" />
-                  <div className="mt-5 pt-4 border-t border-gray-100">
-                    <p className="text-xs text-gray-400 uppercase font-semibold mb-3">Channels</p>
-                    <TR label="Email Digest"       sub="Daily summary at 8 AM"   k="emailDigest" />
-                    <TR label="SMS Alerts"         sub="Critical alerts via SMS" k="smsAlerts" />
-                    <TR label="Push Notifications" sub="Browser push"            k="pushAlerts" />
-                  </div>
-                </div>
-              )}
-              {section === 'automation' && (
-                <div>
-                  <h4 className="font-bold text-gray-800 text-lg mb-4">Automation Rules</h4>
-                  <TR label="Auto-Approve Orders" sub="Automatically approve paid orders"   k="autoApprove" />
-                  <TR label="Auto-Assign Drivers" sub="Auto-match nearest available driver" k="autoAssign" />
-                  <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-xs text-yellow-800">
-                    ⚠️ Auto-assign picks the nearest online driver. Manual review is recommended for high-priority orders.
-                  </div>
-                </div>
-              )}
-              {section === 'security' && (
-                <div>
-                  <h4 className="font-bold text-gray-800 text-lg mb-4">Security</h4>
-                  <TR label="Two-Factor Authentication" sub="Require 2FA for admin login"             k="twoFA" />
-                  <TR label="Session Timeout"           sub="Auto-logout after 30 min of inactivity" k="sessionTimeout" />
-                  <TR label="Audit Log"                 sub="Track all admin actions"                k="auditLog" />
-                  <div className="mt-5 pt-4 border-t border-gray-100 space-y-3">
-                    <button onClick={() => addToast('info', 'Audit log exported', 'Last 30 days downloaded.')}
-                      className="w-full py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 flex items-center justify-center gap-2">
-                      <FaDownload size={13} /> Export Audit Log
-                    </button>
-                    <button onClick={() => addToast('warn', 'All sessions terminated')}
-                      className="w-full py-2.5 bg-red-50 text-red-700 rounded-xl text-sm font-medium hover:bg-red-100 border border-red-200 flex items-center justify-center gap-2">
-                      <FaSignOutAlt size={13} /> Terminate All Sessions
-                    </button>
-                  </div>
-                </div>
-              )}
-              {section === 'system' && (
-                <div>
-                  <h4 className="font-bold text-gray-800 text-lg mb-4">System Settings</h4>
-                  <TR label="Maintenance Mode" sub="Disable student/driver access temporarily" k="maintenanceMode" />
-                  {cfg.maintenanceMode && (
-                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-700 mb-4">
-                      ⚠️ Maintenance mode is ON — students and drivers cannot access the system.
-                    </div>
-                  )}
-                  <div className="mt-5 space-y-4">
-                    {[
-                      { label: 'Max deliveries/driver/day', key: 'maxDeliveriesPerDriver' },
-                      { label: 'Default delivery window (hrs)', key: 'defaultDeliveryWindow' },
-                      { label: 'Order cancellation window (hrs)', key: 'cancellationWindow' },
-                    ].map(({ label, key }) => (
-                      <div key={key}>
-                        <label className="text-xs text-gray-500 mb-1 block font-medium">{label}</label>
-                        <input type="number" value={cfg[key]}
-                          onChange={e => setCfg(p => ({...p, [key]: Number(e.target.value)}))}
-                          className={inputClass} />
-                      </div>
-                    ))}
-                    <button onClick={handleSystemSave} disabled={saving}
-                      className="w-full py-2.5 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                      {saving ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save System Settings'}
-                    </button>
-                  </div>
-                </div>
-              )}
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9997] p-2 sm:p-4">
+  <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
 
-              {section === 'pricing' && (
-  <div>
-    <h4 className="font-bold text-gray-800 text-lg mb-2">Water Pricing</h4>
-    <p className="text-xs text-gray-500 mb-5">Set the price students pay per water quantity.</p>
-    <div className="space-y-4">
-      {[
-        { label: '500 Liters (Standard)', key: 'price500L',  desc: 'Price for 500L order'  },
-        { label: '1000 Liters (Large)',   key: 'price1000L', desc: 'Price for 1000L order' },
-        { label: '1500 Liters (Extra)',   key: 'price1500L', desc: 'Price for 1500L order' },
-      ].map(({ label, key, desc }) => (
-        <div key={key}>
-          <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
-          <p className="text-[10px] text-gray-400 mb-1">{desc}</p>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">₦</span>
-            <input
-              type="number"
-              value={pricing[key]}
-              onChange={e => setPricing(p => ({...p, [key]: Number(e.target.value)}))}
-              className="w-full border border-gray-200 rounded-xl pl-8 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-            />
-          </div>
-          <p className="text-xs text-green-600 mt-0.5 font-medium">
-            = ₦{pricing[key].toLocaleString()} per delivery
-          </p>
-        </div>
-      ))}
+    {/* ── SIDEBAR (always top, always horizontal) ── */}
+    <div className="w-full bg-gray-50 border-b border-gray-100 p-3 flex flex-col shrink-0">
 
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
-        ℹ️ Price changes will apply to new orders only. Existing paid orders are not affected.
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <FaCog className="text-green-600" />
+          <span className="font-bold text-gray-800 text-sm">Admin Settings</span>
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors">
+          <FaTimes size={16} />
+        </button>
       </div>
 
-      <button
-  type="button"
-  onClick={async () => {
-    try {
-      setSavingPricing(true);
-      const token = localStorage.getItem('token'); // ✅ get fresh token inside handler
-      console.log('💾 Saving pricing:', pricing);  // ✅ debug
-      const res = await axios.put(`${API_URL}/admin/settings/pricing`, pricing, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      console.log('✅ Response:', res.data);        // ✅ debug
-      if (res.data.success) addToast('success', 'Pricing updated successfully');
-    } catch (err) {
-      console.error('❌ Error:', err.response?.data); // ✅ debug
-      addToast('error', 'Failed to update pricing', err.response?.data?.message);
-    } finally {
-      setSavingPricing(false);
-    }
-  }}
-  disabled={savingPricing}
-  className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
-  {savingPricing ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Pricing'}
-</button>
+      {/* Horizontal scrollable nav */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+        {SECS.map(s => (
+          <button
+            key={s.id}
+            onClick={() => setSection(s.id)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all shrink-0
+              ${section === s.id
+                ? 'bg-green-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-200 bg-white border border-gray-200'}`}
+          >
+            <span>{s.ico}</span>
+            <span>{s.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {/* ── CONTENT AREA ── */}
+    <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <FaSpinner className="animate-spin text-green-600 text-3xl" />
+        </div>
+      ) : (
+        <>
+          {section === 'profile' && (
+            <div>
+              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4 sm:mb-5">Admin Profile</h4>
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-4 mb-5 p-4 bg-green-50 rounded-xl border border-green-100">
+                <div className="w-14 h-14 bg-gradient-to-br from-green-600 to-emerald-700 rounded-full flex items-center justify-center text-white text-xl font-black shrink-0">
+                  {adminInfo.firstName?.charAt(0)}{adminInfo.lastName?.charAt(0)}
+                </div>
+                <div className="text-center sm:text-left">
+                  <p className="font-bold text-gray-800">{adminInfo.firstName} {adminInfo.lastName}</p>
+                  <p className="text-sm text-gray-500">{adminInfo.email}</p>
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Administrator</span>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500 font-medium mb-1 block">First Name</label>
+                    <input value={adminInfo.firstName}
+                      onChange={e => setAdminInfo(p => ({...p, firstName: e.target.value}))}
+                      className={inputClass} placeholder="First name" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 font-medium mb-1 block">Last Name</label>
+                    <input value={adminInfo.lastName}
+                      onChange={e => setAdminInfo(p => ({...p, lastName: e.target.value}))}
+                      className={inputClass} placeholder="Last name" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium mb-1 block">Phone Number</label>
+                  <input value={adminInfo.phone}
+                    onChange={e => setAdminInfo(p => ({...p, phone: e.target.value}))}
+                    className={inputClass} placeholder="Phone number" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium mb-1 block">Email</label>
+                  <input value={adminInfo.email} disabled
+                    className={`${inputClass} bg-gray-50 text-gray-400 cursor-not-allowed`} />
+                  <p className="text-xs text-gray-400 mt-1">Email cannot be changed.</p>
+                </div>
+                <button onClick={handleProfileSave} disabled={saving}
+                  className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {saving ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Profile'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {section === 'password' && (
+            <div>
+              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4 sm:mb-5">Change Password</h4>
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                  🔒 Password must be at least 8 characters long.
+                </div>
+                {[
+                  { key: 'currentPassword', label: 'Current Password', show: 'current' },
+                  { key: 'newPassword', label: 'New Password', show: 'new' },
+                  { key: 'confirmPassword', label: 'Confirm New Password', show: 'confirm' },
+                ].map(({ key, label, show }) => (
+                  <div key={key}>
+                    <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
+                    <div className="relative">
+                      <input
+                        type={showPw[show] ? 'text' : 'password'}
+                        value={pwForm[key]}
+                        onChange={e => setPwForm(p => ({...p, [key]: e.target.value}))}
+                        className={`${inputClass} pr-10`}
+                        placeholder={label}
+                      />
+                      <button type="button"
+                        onClick={() => setShowPw(p => ({...p, [show]: !p[show]}))}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">
+                        {showPw[show] ? '🙈' : '👁️'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {pwForm.newPassword && (
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-500">Password strength</span>
+                      <span className={pwForm.newPassword.length >= 12 ? 'text-green-600 font-semibold' : pwForm.newPassword.length >= 8 ? 'text-yellow-600 font-semibold' : 'text-red-600 font-semibold'}>
+                        {pwForm.newPassword.length >= 12 ? 'Strong' : pwForm.newPassword.length >= 8 ? 'Good' : 'Too short'}
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-300 ${pwForm.newPassword.length >= 12 ? 'w-full bg-green-500' : pwForm.newPassword.length >= 8 ? 'w-2/3 bg-yellow-500' : 'w-1/3 bg-red-500'}`} />
+                    </div>
+                  </div>
+                )}
+                {pwForm.confirmPassword && (
+                  <p className={`text-xs font-medium flex items-center gap-1 ${pwForm.newPassword === pwForm.confirmPassword ? 'text-green-600' : 'text-red-500'}`}>
+                    {pwForm.newPassword === pwForm.confirmPassword ? '✅ Passwords match' : '❌ Passwords do not match'}
+                  </p>
+                )}
+                <button onClick={handlePasswordChange}
+                  disabled={saving || !pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword}
+                  className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {saving ? <><FaSpinner className="animate-spin" /> Changing...</> : '🔑 Change Password'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {section === 'notifications' && (
+            <div>
+              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4">Notification Preferences</h4>
+              <TR label="New Order Alerts" sub="Notify when a student places an order" k="orderAlerts" />
+              <TR label="Driver Status Alerts" sub="When drivers go online/offline" k="driverAlerts" />
+              <TR label="Payment Alerts" sub="Confirmed and failed payments" k="paymentAlerts" />
+              <TR label="Incident Alerts" sub="Driver-reported incidents" k="incidentAlerts" />
+              <div className="mt-5 pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-400 uppercase font-semibold mb-3">Channels</p>
+                <TR label="Email Digest" sub="Daily summary at 8 AM" k="emailDigest" />
+                <TR label="SMS Alerts" sub="Critical alerts via SMS" k="smsAlerts" />
+                <TR label="Push Notifications" sub="Browser push" k="pushAlerts" />
+              </div>
+            </div>
+          )}
+
+          {section === 'automation' && (
+            <div>
+              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4">Automation Rules</h4>
+              <TR label="Auto-Approve Orders" sub="Automatically approve paid orders" k="autoApprove" />
+              <TR label="Auto-Assign Drivers" sub="Auto-match nearest available driver" k="autoAssign" />
+              <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-xs text-yellow-800">
+                ⚠️ Auto-assign picks the nearest online driver. Manual review is recommended for high-priority orders.
+              </div>
+            </div>
+          )}
+
+          {section === 'security' && (
+            <div>
+              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4">Security</h4>
+              <TR label="Two-Factor Authentication" sub="Require 2FA for admin login" k="twoFA" />
+              <TR label="Session Timeout" sub="Auto-logout after 30 min of inactivity" k="sessionTimeout" />
+              <TR label="Audit Log" sub="Track all admin actions" k="auditLog" />
+              <div className="mt-5 pt-4 border-t border-gray-100 space-y-3">
+                <button onClick={() => addToast('info', 'Audit log exported', 'Last 30 days downloaded.')}
+                  className="w-full py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 flex items-center justify-center gap-2">
+                  <FaDownload size={13} /> Export Audit Log
+                </button>
+                <button onClick={() => addToast('warn', 'All sessions terminated')}
+                  className="w-full py-2.5 bg-red-50 text-red-700 rounded-xl text-sm font-medium hover:bg-red-100 border border-red-200 flex items-center justify-center gap-2">
+                  <FaSignOutAlt size={13} /> Terminate All Sessions
+                </button>
+              </div>
+            </div>
+          )}
+
+          {section === 'system' && (
+            <div>
+              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4">System Settings</h4>
+              <TR label="Maintenance Mode" sub="Disable student/driver access temporarily" k="maintenanceMode" />
+              {cfg.maintenanceMode && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-700 mb-4">
+                  ⚠️ Maintenance mode is ON — students and drivers cannot access the system.
+                </div>
+              )}
+              <div className="mt-5 space-y-4">
+                {[
+                  { label: 'Max deliveries/driver/day', key: 'maxDeliveriesPerDriver' },
+                  { label: 'Default delivery window (hrs)', key: 'defaultDeliveryWindow' },
+                  { label: 'Order cancellation window (hrs)', key: 'cancellationWindow' },
+                ].map(({ label, key }) => (
+                  <div key={key}>
+                    <label className="text-xs text-gray-500 mb-1 block font-medium">{label}</label>
+                    <input type="number" value={cfg[key]}
+                      onChange={e => setCfg(p => ({...p, [key]: Number(e.target.value)}))}
+                      className={inputClass} />
+                  </div>
+                ))}
+                <button onClick={handleSystemSave} disabled={saving}
+                  className="w-full py-2.5 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {saving ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save System Settings'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {section === 'pricing' && (
+            <div>
+              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-2">Water Pricing</h4>
+              <p className="text-xs text-gray-500 mb-5">Set the price students pay per water quantity.</p>
+              <div className="space-y-4">
+                {[
+                  { label: '500 Liters (Standard)', key: 'price500L', desc: 'Price for 500L order' },
+                  { label: '1000 Liters (Large)', key: 'price1000L', desc: 'Price for 1000L order' },
+                  { label: '1500 Liters (Extra)', key: 'price1500L', desc: 'Price for 1500L order' },
+                ].map(({ label, key, desc }) => (
+                  <div key={key}>
+                    <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
+                    <p className="text-[10px] text-gray-400 mb-1">{desc}</p>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">₦</span>
+                      <input type="number" value={pricing[key]}
+                        onChange={e => setPricing(p => ({...p, [key]: Number(e.target.value)}))}
+                        className="w-full border border-gray-200 rounded-xl pl-8 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+                    </div>
+                    <p className="text-xs text-green-600 mt-0.5 font-medium">= ₦{pricing[key].toLocaleString()} per delivery</p>
+                  </div>
+                ))}
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                  ℹ️ Price changes will apply to new orders only. Existing paid orders are not affected.
+                </div>
+                <button type="button"
+                  onClick={async () => {
+                    try {
+                      setSavingPricing(true);
+                      const token = localStorage.getItem('token');
+                      const res = await axios.put(`${API_URL}/admin/settings/pricing`, pricing, {
+                        headers: { Authorization: `Bearer ${token}` }
+                      });
+                      if (res.data.success) addToast('success', 'Pricing updated successfully');
+                    } catch (err) {
+                      addToast('error', 'Failed to update pricing', err.response?.data?.message);
+                    } finally {
+                      setSavingPricing(false);
+                    }
+                  }}
+                  disabled={savingPricing}
+                  className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {savingPricing ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Pricing'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {section === 'commission' && (
+            <div>
+              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-2">Driver Commission</h4>
+              <p className="text-xs text-gray-500 mb-5">Configure how drivers are paid per delivery.</p>
+              <div className="space-y-4">
+                {[
+                  { label: 'Base Rate per Liter (₦)', key: 'baseRatePerLiter', desc: 'Amount paid per liter delivered' },
+                  { label: 'Bonus per Delivery (₦)', key: 'bonusPerDelivery', desc: 'Fixed bonus for each completed delivery' },
+                  { label: 'Average Tip (₦)', key: 'tipAverage', desc: 'Average tip amount per delivery' },
+                  { label: 'Commission Percentage (%)', key: 'commissionPercent', desc: '% of order value paid to driver' },
+                ].map(({ label, key, desc }) => (
+                  <div key={key}>
+                    <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
+                    <p className="text-[10px] text-gray-400 mb-1">{desc}</p>
+                    <input type="number" value={commission[key]}
+                      onChange={e => setCommission(p => ({...p, [key]: Number(e.target.value)}))}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+                  </div>
+                ))}
+                <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                  <p className="text-xs font-bold text-gray-700 mb-2">📊 Example Earnings (500L delivery)</p>
+                  <div className="space-y-1 text-xs text-gray-600">
+                    <div className="flex justify-between">
+                      <span>Base ({commission.baseRatePerLiter} × 500L)</span>
+                      <span className="font-bold">₦{(commission.baseRatePerLiter * 500).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Bonus per delivery</span>
+                      <span className="font-bold">₦{commission.bonusPerDelivery.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Average tip</span>
+                      <span className="font-bold">₦{commission.tipAverage.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-green-200 pt-1 mt-1">
+                      <span className="font-bold text-green-700">Total per delivery</span>
+                      <span className="font-black text-green-700">
+                        ₦{(commission.baseRatePerLiter * 500 + commission.bonusPerDelivery + commission.tipAverage).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-xs text-yellow-800">
+                  ⚠️ Commission changes affect future earnings calculations. Past earnings are not recalculated.
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      setSavingPricing(true);
+                      const token = localStorage.getItem('token');
+                      const res = await axios.put(`${API_URL}/admin/settings/commission`, commission, {
+                        headers: { Authorization: `Bearer ${token}` }
+                      });
+                      if (res.data.success) addToast('success', 'Commission rates updated successfully');
+                    } catch (err) {
+                      addToast('error', 'Failed to update commission', err.response?.data?.message);
+                    } finally {
+                      setSavingPricing(false);
+                    }
+                  }}
+                  disabled={savingPricing}
+                  className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {savingPricing ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Commission Rates'}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   </div>
-              )}
-
-              {section === 'commission' && (
-                <div>
-                  <h4 className="font-bold text-gray-800 text-lg mb-2">Driver Commission</h4>
-                  <p className="text-xs text-gray-500 mb-5">Configure how drivers are paid per delivery.</p>
-                  <div className="space-y-4">
-                    {[
-                      { label: 'Base Rate per Liter (₦)',    key: 'baseRatePerLiter',  desc: 'Amount paid per liter delivered'           },
-                      { label: 'Bonus per Delivery (₦)',      key: 'bonusPerDelivery',  desc: 'Fixed bonus for each completed delivery'   },
-                      { label: 'Average Tip (₦)',             key: 'tipAverage',        desc: 'Average tip amount per delivery'           },
-                      { label: 'Commission Percentage (%)',   key: 'commissionPercent', desc: '% of order value paid to driver'           },
-                    ].map(({ label, key, desc }) => (
-                      <div key={key}>
-                        <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
-                        <p className="text-[10px] text-gray-400 mb-1">{desc}</p>
-                        <input
-                          type="number"
-                          value={commission[key]}
-                          onChange={e => setCommission(p => ({...p, [key]: Number(e.target.value)}))}
-                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                        />
-                      </div>
-                    ))}
-
-                    {/* Live preview */}
-                    <div className="bg-green-50 border border-green-100 rounded-xl p-4">
-                      <p className="text-xs font-bold text-gray-700 mb-2">📊 Example Earnings (500L delivery)</p>
-                      <div className="space-y-1 text-xs text-gray-600">
-                        <div className="flex justify-between">
-                          <span>Base ({commission.baseRatePerLiter} × 500L)</span>
-                          <span className="font-bold">₦{(commission.baseRatePerLiter * 500).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Bonus per delivery</span>
-                          <span className="font-bold">₦{commission.bonusPerDelivery.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Average tip</span>
-                          <span className="font-bold">₦{commission.tipAverage.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between border-t border-green-200 pt-1 mt-1">
-                          <span className="font-bold text-green-700">Total per delivery</span>
-                          <span className="font-black text-green-700">
-                            ₦{(commission.baseRatePerLiter * 500 + commission.bonusPerDelivery + commission.tipAverage).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-xs text-yellow-800">
-                      ⚠️ Commission changes affect future earnings calculations. Past earnings are not recalculated.
-                    </div>
-
-                    <button
-                      onClick={async () => {
-                        try {
-                          setSavingPricing(true);
-                           console.log('💾 Saving pricing:', pricing);
-                          const res = await axios.put(`${API_URL}/admin/settings/commission`, commission, {
-                            headers: { Authorization: `Bearer ${token}` }
-                          });
-                           console.log('✅ Save response:', res.data);
-                          if (res.data.success) addToast('success', 'Commission rates updated successfully');
-                        } catch (err) {
-                          addToast('error', 'Failed to update commission', err.response?.data?.message);
-                        } finally {
-                          setSavingPricing(false);
-                        }
-                      }}
-                      disabled={savingPricing}
-                      className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                      {savingPricing ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Commission Rates'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+</div>
   );
 };
 
@@ -994,6 +997,11 @@ const [withdrawalFilter, setWithdrawalFilter]     = useState('pending');
 const [rejectNote, setRejectNote]                 = useState('');
 const [showRejectModal, setShowRejectModal]       = useState(false);
 const [selectedWithdrawal, setSelectedWithdrawal] = useState(null);
+
+
+// Add this state near your other useState declarations
+const [showMobileMenu, setShowMobileMenu] = useState(false);
+
   
 
   // Fetch analytics function
@@ -1551,7 +1559,10 @@ const resolveIncident = async (driverId, incidentId) => {
       />
 
       {/* Header */}
-      <header className="bg-white shadow-md sticky top-0 z-40">
+    
+  
+
+       <header className="bg-white shadow-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -1585,10 +1596,10 @@ const resolveIncident = async (driverId, incidentId) => {
                   </span>
                 )}
               </button>
-              <button onClick={() => setShowSettings(true)} className="w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
+              <button onClick={() => setShowSettings(true)} className="w-9 h-9 hidden bg-gray-100 hover:bg-green-100 rounded-full  items-center justify-center transition-colors">
                 <FaCog className="text-gray-500 text-sm" />
               </button>
-              <button onClick={() => navigate('/login')} className="flex items-center gap-2 text-sm text-red-500 hover:text-red-700 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors font-medium">
+              <button onClick={() => { localStorage.clear(); navigate('/login'); }} className="flex items-center gap-2 text-sm text-red-500 hover:text-red-700 border border-red-200 hover:bg-red-50 sm:px-3 sm:py-1.5 px-1 py-1 rounded-lg transition-colors font-medium">
                 <FaSignOutAlt size={12} /> Logout
               </button>
             </div>
@@ -1731,11 +1742,11 @@ const resolveIncident = async (driverId, incidentId) => {
                   <div className="space-y-6">
                     <div className="grid lg:grid-cols-2 gap-5">
                       <div className="bg-gray-50 rounded-2xl p-4">
-                        <h3 className="font-bold text-gray-800 mb-3">Delivery Trends</h3>
+                        <h3 className="font-bold text-sm text-gray-800 mb-3">Delivery Trends</h3>
                         <div className="h-56"><Line data={deliveryTrend} options={co} /></div>
                       </div>
                       <div className="bg-gray-50 rounded-2xl p-4">
-                        <h3 className="font-bold text-gray-800 mb-3">Order Distribution</h3>
+                        <h3 className="font-bold text-sm text-gray-800 mb-3">Order Distribution</h3>
                         <div className="h-56"><Pie data={orderDist} options={po} /></div>
                       </div>
                     </div>
@@ -1853,7 +1864,7 @@ const resolveIncident = async (driverId, incidentId) => {
                 {activeTab === 'orders' && (
                   <div>
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-gray-800">Order Management</h3>
+                      <h3 className="font-bold text-sm text-gray-800">Order Management</h3>
                       <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}
                         className="border border-gray-200 rounded-xl p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent">
                         {['all','pending','approved','in-progress','completed','cancelled'].map(s=>(
@@ -1941,9 +1952,9 @@ const resolveIncident = async (driverId, incidentId) => {
                 {activeTab === 'students' && (
                   <div>
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-gray-800">Student Management</h3>
+                      <h3 className="font-bold text-sm text-gray-800">Student Management</h3>
                       <button onClick={() => setShowAddStudent(true)}
-                        className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-green-700 flex items-center gap-1.5 transition-colors">
+                        className="bg-green-600 text-white px-4 py-2 rounded-xl sm:text-sm text-xs font-semibold hover:bg-green-700 flex items-center gap-1.5 transition-colors">
                         <FaUserPlus size={12} /> Add Student
                       </button>
                     </div>
@@ -2008,22 +2019,22 @@ const resolveIncident = async (driverId, incidentId) => {
                   <div>
                     <div className="flex justify-between items-center mb-4">
                       <div className="flex items-center gap-3">
-                        <h3 className="font-bold text-gray-800">Driver Management</h3>
+                        <h3 className="font-bold text-sm  text-gray-800 ">Driver M</h3>
                         {pendingDriverCount > 0 && (
-                          <span className="px-2.5 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">
+                          <span className="px-2.5 py-1 bg-orange-100  text-orange-700 rounded-full text-xs font-bold">
                             {pendingDriverCount} pending approval
                           </span>
                         )}
                       </div>
                       <div className="flex gap-2">
                         <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}
-                          className="border border-gray-200 rounded-xl p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                          className="border border-gray-200 rounded-xl p-1 sm:text-sm text-xs focus:ring-2 focus:ring-green-500 focus:border-transparent">
                           {['all','pending','active','inactive','suspended','on-leave'].map(s=>(
                             <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>
                           ))}
                         </select>
                         <button onClick={() => setShowAddDriver(true)}
-                          className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-green-700 flex items-center gap-1.5 transition-colors">
+                          className="bg-green-600 text-white px-4 py-2 rounded-xl sm:text-sm text-xs font-semibold hover:bg-green-700 flex items-center gap-1.5 transition-colors">
                           <FaUserPlus size={12} /> Add Driver
                         </button>
                       </div>
@@ -2112,7 +2123,7 @@ const resolveIncident = async (driverId, incidentId) => {
                 {activeTab === 'tracking' && (
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                      <h3 className="font-bold text-gray-800">Live Tracking Map</h3>
+                      <h3 className="font-bold text-sm text-gray-800">Live Map</h3>
                       <div className="flex gap-2 flex-wrap">
                         {[
                           { label:'Drivers', ico:FaTruck,        active:showAllDrivers, fn:()=>setShowAllDrivers(p=>!p), color:'green' },
@@ -2202,7 +2213,7 @@ const resolveIncident = async (driverId, incidentId) => {
                 {activeTab === 'incidents' && (
                   <div>
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-gray-800">Incident Reports</h3>
+                      <h3 className="font-bold text-sm text-gray-800">Incident Reports</h3>
                       <div className="flex items-center gap-2">
                         <span className="text-xs bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-semibold">
                           {incidents.filter(i => i.status === 'pending').length} pending
@@ -2315,10 +2326,10 @@ const resolveIncident = async (driverId, incidentId) => {
 
                 {activeTab === 'withdrawals' && (
                     <div>
-                                    {/* ── Reject Modal ── */}
-                                    {showRejectModal && selectedWithdrawal && (
+                        {/* ── Reject Modal ── */}
+                        {showRejectModal && selectedWithdrawal && (
                                       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                                        <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-6">
+                                        <div className="bg-white text-sm rounded-2xl max-w-sm w-full shadow-2xl p-6">
                                           <h3 className="font-bold text-gray-800 text-lg mb-2">Reject Withdrawal</h3>
                                           <p className="text-sm text-gray-500 mb-4">
                                             Rejecting <strong>₦{selectedWithdrawal.amount?.toLocaleString()}</strong> for{' '}
@@ -2345,10 +2356,10 @@ const resolveIncident = async (driverId, incidentId) => {
                                           </div>
                                         </div>
                                       </div>
-                                    )}
+                        )}
 
                                     {/* ── Header ── */}
-                                    <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+                        <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
                                       <h3 className="font-bold text-gray-800">Withdrawal Requests</h3>
                                       <div className="flex gap-2 flex-wrap">
                                         {[
@@ -2368,20 +2379,20 @@ const resolveIncident = async (driverId, incidentId) => {
                                           🔄 Refresh
                                         </button>
                                       </div>
-                                    </div>
+                        </div>
 
                                     {/* ── Content ── */}
-                                    {withdrawalsLoading ? (
+                        {withdrawalsLoading ? (
                                       <div className="flex items-center justify-center py-16">
                                         <FaSpinner className="animate-spin text-green-600 text-3xl" />
                                       </div>
-                                    ) : withdrawals.length === 0 ? (
-                                      <div className="text-center py-16 text-gray-400">
+                        ) : withdrawals.length === 0 ? (
+                        <div className="text-center py-16 text-gray-400">
                                         <FaMoneyBillWave className="text-5xl mx-auto mb-3 opacity-20" />
                                         <p className="text-sm">No {withdrawalFilter === 'all' ? '' : withdrawalFilter} withdrawal requests</p>
-                                      </div>
-                                    ) : (
-                                      <div className="space-y-4">
+                        </div>
+                        ) : (
+                        <div className="space-y-4">
                                         {withdrawals.map(w => (
                                           <div key={w._id}
                                             className={`rounded-xl border-2 p-4 transition-all ${
@@ -2404,7 +2415,7 @@ const resolveIncident = async (driverId, incidentId) => {
                                                     </p>
                                                     <span className="text-xs text-gray-400">{w.driver?.tankerId}</span>
                                                     <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                                                      w.status === 'pending'  ? 'bg-yellow-100 text-yellow-700' :
+                                                      w.status === 'pending'  ? 'bg-yellow-100  text-yellow-700' :
                                                       w.status === 'approved' ? 'bg-green-100 text-green-700' :
                                                       'bg-red-100 text-red-700'
                                                     }`}>
@@ -2427,22 +2438,27 @@ const resolveIncident = async (driverId, incidentId) => {
 
                                                   {/* ✅ Driver balance breakdown */}
                                                   {w.driverBalance && (
-                                                    <div className="grid grid-cols-3 gap-2 bg-white rounded-xl p-3 border border-gray-100 mb-2">
-                                                      <div className="text-center">
-                                                        <p className="text-xs text-gray-400">Total Earned</p>
-                                                        <p className="text-sm font-black text-green-600">₦{w.driverBalance.totalEarnings.toLocaleString()}</p>
-                                                      </div>
-                                                      <div className="text-center border-x border-gray-100">
-                                                        <p className="text-xs text-gray-400">Withdrawn</p>
-                                                        <p className="text-sm font-black text-orange-500">₦{w.driverBalance.totalWithdrawn.toLocaleString()}</p>
-                                                      </div>
-                                                      <div className="text-center">
-                                                        <p className="text-xs text-gray-400">Available</p>
-                                                        <p className={`text-sm font-black ${w.driverBalance.available >= w.amount ? 'text-blue-600' : 'text-red-600'}`}>
-                                                          ₦{w.driverBalance.available.toLocaleString()}
-                                                        </p>
-                                                      </div>
+                                                    <div className="flex flex-wrap bg-white rounded-xl p-3 border border-gray-100 mb-2">
+                                                    {/* Total Earned */}
+                                                    <div className="flex-1 min-w-[90px] text-center px-2 py-1">
+                                                      <p className="text-[12px] sm:text-sm text-gray-400">Total Earned</p>
+                                                      <p className="text-xs sm:text-sm font-black text-green-600">₦{w.driverBalance.totalEarnings.toLocaleString()}</p>
                                                     </div>
+                                                    
+                                                    {/* Withdrawn */}
+                                                    <div className="flex-1 min-w-[90px] text-center px-2 py-1 border-l border-r border-gray-100">
+                                                      <p className="text-[12px] sm:text-sm text-gray-400">Withdrawn</p>
+                                                      <p className="text-xs sm:text-sm font-black text-orange-500">₦{w.driverBalance.totalWithdrawn.toLocaleString()}</p>
+                                                    </div>
+                                                    
+                                                    {/* Available */}
+                                                    <div className="flex-1 min-w-[90px] text-center px-2 py-1">
+                                                      <p className="text-[12px] sm:text-sm text-gray-400">Available</p>
+                                                      <p className={`text-xs sm:text-sm font-black ${w.driverBalance.available >= w.amount ? 'text-blue-600' : 'text-red-600'}`}>
+                                                        ₦{w.driverBalance.available.toLocaleString()}
+                                                      </p>
+                                                    </div>
+                                                  </div>
                                                   )}
 
                                                   {/* Insufficient balance warning */}
@@ -2488,12 +2504,525 @@ const resolveIncident = async (driverId, incidentId) => {
                                             </div>
                                           </div>
                                         ))}
-                                      </div>
-                                    )}
+                        </div>
+                          )}
                     </div>
                 )}
                   
                 {/* ANALYTICS TAB - Now properly inside the component */}
+
+                {activeTab === 'analytics' && (
+                  <div className="space-y-6">
+
+                    {/* Period Selector */}
+                    <div className="flex flex-wrap   items-center justify-between gap-3">
+                      <h3 className="font-bold text-gray-800 text-sm sm:text-lg">Analytics Dashboard</h3>
+                      <div className="flex gap-2">
+                        {[
+                          { id: 'today',   label: 'Today'   },
+                          { id: 'week',    label: 'Week'    },
+                          { id: 'month',   label: 'Month'   },
+                          { id: 'quarter', label: 'Quarter' },
+                          { id: 'year',    label: 'Year'    },
+                        ].map(p => (
+                          <button key={p.id} onClick={() => setAnalyticsPeriod(p.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all
+                              ${analyticsPeriod === p.id
+                                ? 'bg-green-600 text-white shadow-md'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Loading */}
+                    {analyticsLoading ? (
+                      <div className="flex items-center justify-center py-20">
+                        <div className="text-center">
+                          <FaSpinner className="animate-spin text-green-600 text-4xl mx-auto mb-3" />
+                          <p className="text-gray-500 text-sm">Loading analytics...</p>
+                        </div>
+                      </div>
+                    ) : analytics ? (
+                      <>
+                        {/* ── Overview KPI Cards ── */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                          {[
+                            {
+                              label: 'Total Revenue',
+                              value: `₦${(analytics.overview.totalRevenue || 0).toLocaleString()}`,
+                              sub:   `₦${(analytics.overview.periodRevenue || 0).toLocaleString()} this ${analyticsPeriod}`,
+                              icon:  FaMoneyBillWave,
+                              color: 'bg-green-500',
+                              trend: '↑',
+                              trendColor: 'text-green-600',
+                            },
+                            {
+                              label: 'Completion Rate',
+                              value: `${analytics.overview.completionRate || 0}%`,
+                              sub:   `${analytics.overview.completedOrders} of ${analytics.overview.totalOrders} orders`,
+                              icon:  FaCheckCircle,
+                              color: 'bg-blue-500',
+                              trend: '↑',
+                              trendColor: 'text-green-600',
+                            },
+                            {
+                              label: 'Total Water',
+                              value: `${((analytics.overview.totalWater || 0) / 1000).toFixed(1)}KL`,
+                              sub:   `${analytics.overview.totalOrders} total orders`,
+                              icon:  FaTint,
+                              color: 'bg-cyan-500',
+                              trend: '↑',
+                              trendColor: 'text-green-600',
+                            },
+                            {
+                              label: 'New Students',
+                              value: analytics.overview.newStudents || 0,
+                              sub:   `${analytics.overview.totalStudents} total students`,
+                              icon:  FaUsers,
+                              color: 'bg-purple-500',
+                              trend: '↑',
+                              trendColor: 'text-green-600',
+                            },
+                          ].map(s => (
+                            <div key={s.label} className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-shadow">
+                            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-between sm:items-start gap-2 mb-2">
+                              <div className="flex-1">
+                                <p className="text-xs text-gray-500 font-medium">{s.label}</p>
+                                <p className="text-xl sm:text-2xl font-black text-gray-800 mt-1 break-all">{s.value}</p>
+                              </div>
+                              <div className={`${s.color} p-3 rounded-xl self-start sm:self-auto`}>
+                                <s.icon className="text-white text-lg" />
+                              </div>
+                            </div>
+                            <p className={`text-xs ${s.trendColor} font-medium`}>{s.trend} {s.sub}</p>
+                          </div>
+                          ))}
+                        </div>
+
+                        {/* ── Revenue Chart ── */}
+                        <div className="bg-white rounded-2xl shadow-md p-5">
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-gray-800">Revenue Over Time</h3>
+                            <span className="text-sm font-bold text-green-600">
+                              ₦{(analytics.revenue.totalRevenue || 0).toLocaleString()} total
+                            </span>
+                          </div>
+                          <div className="h-64">
+                            <Line
+                              data={{
+                                labels: analytics.revenue.labels.map(l => {
+                                  const d = new Date(l);
+                                  return d.toLocaleDateString('en-NG', { month: 'short', day: 'numeric' });
+                                }),
+                                datasets: [{
+                                  label:           'Revenue (₦)',
+                                  data:            analytics.revenue.revenues,
+                                  borderColor:     '#10B981',
+                                  backgroundColor: 'rgba(16,185,129,0.1)',
+                                  fill:            true,
+                                  tension:         0.4,
+                                  pointRadius:     3,
+                                  pointHoverRadius:6,
+                                }]
+                              }}
+                              options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: {
+                                  y: {
+                                    beginAtZero: true,
+                                    grid: { color: 'rgba(0,0,0,0.05)' },
+                                    ticks: {
+                                      callback: v => `₦${(v/1000).toFixed(0)}K`
+                                    }
+                                  },
+                                  x: { grid: { display: false } }
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* ── Order Trends + Distribution ── */}
+                        <div className="grid lg:grid-cols-2 gap-5">
+                          <div className="bg-white rounded-2xl shadow-md p-5">
+                            <h3 className="font-bold text-gray-800 mb-4">Order Trends (Last 7 Days)</h3>
+                            <div className="h-56">
+                              <Bar
+                                data={{
+                                  labels: analytics.orders.trend.labels.map(l => {
+                                    const d = new Date(l);
+                                    return d.toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric' });
+                                  }),
+                                  datasets: [
+                                    {
+                                      label:           'Completed',
+                                      data:            analytics.orders.trend.completed,
+                                      backgroundColor: '#10B981',
+                                      borderRadius:    6,
+                                    },
+                                    {
+                                      label:           'Pending',
+                                      data:            analytics.orders.trend.pending,
+                                      backgroundColor: '#F59E0B',
+                                      borderRadius:    6,
+                                    },
+                                    {
+                                      label:           'Cancelled',
+                                      data:            analytics.orders.trend.cancelled,
+                                      backgroundColor: '#EF4444',
+                                      borderRadius:    6,
+                                    },
+                                  ]
+                                }}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: false,
+                                  plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+                                  scales: {
+                                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                                    x: { grid: { display: false } }
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="bg-white rounded-2xl shadow-md p-5">
+                            <h3 className="font-bold text-gray-800 mb-4">Order Status Distribution</h3>
+                            <div className="h-56">
+                              <Pie
+                                data={{
+                                  labels: analytics.orders.statusDistribution.map(s => s._id),
+                                  datasets: [{
+                                    data: analytics.orders.statusDistribution.map(s => s.count),
+                                    backgroundColor: ['#F59E0B','#3B82F6','#8B5CF6','#10B981','#EF4444','#6B7280'],
+                                    borderWidth: 0,
+                                  }]
+                                }}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: false,
+                                  plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* ── User Growth ── */}
+                        <div className="bg-white rounded-2xl shadow-md p-5">
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-gray-800">User Growth (Last 12 Months)</h3>
+                            <div className="flex gap-4 text-xs">
+                              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-blue-500 rounded-full inline-block"/>{analytics.users.totals.totalStudents} students</span>
+                              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-500 rounded-full inline-block"/>{analytics.users.totals.totalDrivers} drivers</span>
+                            </div>
+                          </div>
+                          <div className="h-64">
+                            <Bar
+                              data={{
+                                labels: analytics.users.labels.map(l => {
+                                  const [y, m] = l.split('-');
+                                  return new Date(y, m - 1).toLocaleDateString('en-NG', { month: 'short', year: '2-digit' });
+                                }),
+                                datasets: [
+                                  {
+                                    label:           'Students',
+                                    data:            analytics.users.studentCounts,
+                                    backgroundColor: '#3B82F6',
+                                    borderRadius:    6,
+                                  },
+                                  {
+                                    label:           'Drivers',
+                                    data:            analytics.users.driverCounts,
+                                    backgroundColor: '#10B981',
+                                    borderRadius:    6,
+                                  },
+                                ]
+                              }}
+                              options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+                                scales: {
+                                  y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                                  x: { grid: { display: false } }
+                                }
+                              }}
+                            />
+                          </div>
+                          {/* User breakdown stats */}
+                          <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-100">
+                            {[
+                              { label: 'Total Students',    value: analytics.users.totals.totalStudents },
+                              { label: 'Verified Students', value: analytics.users.totals.verifiedStudents },
+                              { label: 'Active Drivers',    value: analytics.users.totals.activeDrivers },
+                            ].map(s => (
+                              <div key={s.label} className="text-center">
+                                <p className="text-xl font-black text-gray-800">{s.value}</p>
+                                <p className="text-xs text-gray-500">{s.label}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* ── Hall Breakdown + Department Breakdown ── */}
+                        <div className="grid lg:grid-cols-2 gap-5">
+                          <div className="bg-white rounded-2xl shadow-md p-5">
+                            <h3 className="font-bold text-gray-800 mb-4">Students by Hall</h3>
+                            <div className="space-y-2.5">
+                              {analytics.users.hallBreakdown.map((h, i) => {
+                                const max = analytics.users.hallBreakdown[0]?.count || 1;
+                                const pct = ((h.count / max) * 100).toFixed(0);
+                                return (
+                                  <div key={h._id || i}>
+                                    <div className="flex justify-between text-xs mb-1">
+                                      <span className="font-medium text-gray-700">{h._id || 'Unknown'}</span>
+                                      <span className="font-bold text-gray-800">{h.count}</span>
+                                    </div>
+                                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                      <div className="h-full bg-green-500 rounded-full transition-all duration-500"
+                                        style={{ width: `${pct}%` }} />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {analytics.users.hallBreakdown.length === 0 && (
+                                <p className="text-center text-gray-400 py-4 text-sm">No data yet</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="bg-white rounded-2xl shadow-md p-5">
+                            <h3 className="font-bold text-gray-800 mb-4">Students by Department</h3>
+                            <div className="space-y-2.5">
+                              {analytics.users.deptBreakdown.map((d, i) => {
+                                const max = analytics.users.deptBreakdown[0]?.count || 1;
+                                const pct = ((d.count / max) * 100).toFixed(0);
+                                return (
+                                  <div key={d._id || i}>
+                                    <div className="flex justify-between text-xs mb-1">
+                                      <span className="font-medium text-gray-700 truncate max-w-[200px]">{d._id || 'Unknown'}</span>
+                                      <span className="font-bold text-gray-800 shrink-0 ml-2">{d.count}</span>
+                                    </div>
+                                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                      <div className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                                        style={{ width: `${pct}%` }} />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {analytics.users.deptBreakdown.length === 0 && (
+                                <p className="text-center text-gray-400 py-4 text-sm">No data yet</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* ── Driver Performance ── */}
+                        <div className="bg-white rounded-2xl shadow-md p-5">
+                          <h3 className="font-bold text-gray-800 mb-4">Top Driver Performance</h3>
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  {['Rank','Driver','Tanker','Status','Rating','Deliveries','Vehicle'].map(h => (
+                                    <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {analytics.drivers.topDrivers.map((d, i) => (
+                                  <tr key={d._id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="px-3 py-2.5 text-sm font-bold text-gray-500">
+                                      {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
+                                    </td>
+                                    <td className="px-3 py-2.5">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold text-xs shrink-0">
+                                          {d.firstName?.charAt(0)}{d.lastName?.charAt(0)}
+                                        </div>
+                                        <span className="text-sm font-semibold text-gray-800">{d.firstName} {d.lastName}</span>
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-2.5 text-sm text-gray-600">{d.tankerId}</td>
+                                    <td className="px-3 py-2.5">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                        d.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                      }`}>{d.status}</span>
+                                    </td>
+                                    <td className="px-3 py-2.5">
+                                      <div className="flex items-center gap-1">
+                                        <FaStar className="text-yellow-400 text-xs" />
+                                        <span className="text-sm font-bold">{d.rating}</span>
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-2.5 text-sm font-bold text-gray-800">{d.totalDeliveries}</td>
+                                    <td className="px-3 py-2.5 text-xs text-gray-500">{d.vehicleType}</td>
+                                  </tr>
+                                ))}
+                                {analytics.drivers.topDrivers.length === 0 && (
+                                  <tr><td colSpan="7" className="px-3 py-8 text-center text-gray-400">No driver data yet</td></tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                          {/* Driver stats row */}
+                          <div className="grid grid-cols-4 gap-3 mt-4 pt-4 border-t border-gray-100">
+                            {[
+                              { label: 'Online Now',    value: analytics.drivers.onlineCount },
+                              { label: 'Offline',       value: analytics.drivers.offlineCount },
+                              { label: 'Avg Rating',    value: `⭐ ${analytics.drivers.avgRating}` },
+                              { label: 'Total Incidents', value: analytics.drivers.totalIncidents },
+                            ].map(s => (
+                              <div key={s.label} className="text-center bg-gray-50 rounded-xl p-3">
+                                <p className="text-lg font-black text-gray-800">{s.value}</p>
+                                <p className="text-xs text-gray-500">{s.label}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* ── Water Delivery Analytics ── */}
+                        <div className="bg-white rounded-2xl shadow-md p-5">
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-gray-800">Water Delivery Volume</h3>
+                            <span className="text-sm font-bold text-blue-600">
+                              {((analytics.water.allTimeWater || 0) / 1000).toFixed(1)}KL all time
+                            </span>
+                          </div>
+                          <div className="h-56">
+                            <Line
+                              data={{
+                                labels: analytics.water.labels.map(l => {
+                                  const d = new Date(l);
+                                  return d.toLocaleDateString('en-NG', { month: 'short', day: 'numeric' });
+                                }),
+                                datasets: [{
+                                  label:           'Liters Delivered',
+                                  data:            analytics.water.waterVolumes,
+                                  borderColor:     '#3B82F6',
+                                  backgroundColor: 'rgba(59,130,246,0.1)',
+                                  fill:            true,
+                                  tension:         0.4,
+                                }]
+                              }}
+                              options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: {
+                                  y: {
+                                    beginAtZero: true,
+                                    grid: { color: 'rgba(0,0,0,0.05)' },
+                                    ticks: { callback: v => `${v}L` }
+                                  },
+                                  x: { grid: { display: false } }
+                                }
+                              }}
+                            />
+                          </div>
+                          {/* Quantity popularity */}
+                          <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-100">
+                            {analytics.water.quantityPopularity.map(q => (
+                              <div key={q._id} className="bg-blue-50 rounded-xl p-3 text-center">
+                                <p className="text-lg font-black text-blue-700">{q.count}</p>
+                                <p className="text-xs text-gray-600 mt-0.5">{q._id}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* ── Payment Analytics ── */}
+                        <div className="grid lg:grid-cols-2 gap-5">
+                          <div className="bg-white rounded-2xl shadow-md p-5">
+                            <h3 className="font-bold text-gray-800 mb-4">Payment Overview</h3>
+                            <div className="space-y-3">
+                              {[
+                                { label: 'Total Revenue',   value: `₦${(analytics.payments.totalRevenue || 0).toLocaleString()}`,  color: 'bg-green-500'  },
+                                { label: 'Period Revenue',  value: `₦${(analytics.payments.periodRevenue || 0).toLocaleString()}`, color: 'bg-blue-500'   },
+                                { label: 'Unpaid Amount',   value: `₦${(analytics.payments.unpaidAmount  || 0).toLocaleString()}`, color: 'bg-red-400'    },
+                                { label: 'Avg Transaction', value: `₦${(analytics.payments.avgTransaction || 0).toLocaleString()}`,color: 'bg-purple-500' },
+                              ].map(s => (
+                                <div key={s.label} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                  <div className={`${s.color} w-3 h-3 rounded-full shrink-0`} />
+                                  <p className="text-sm text-gray-600 flex-1">{s.label}</p>
+                                  <p className="text-sm font-black text-gray-800">{s.value}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="bg-white rounded-2xl shadow-md p-5">
+                            <h3 className="font-bold text-gray-800 mb-4">Payment Status Breakdown</h3>
+                            {analytics.payments.paymentStatus.length > 0 ? (
+                              <div className="h-48">
+                                <Pie
+                                  data={{
+                                    labels: analytics.payments.paymentStatus.map(p => p._id),
+                                    datasets: [{
+                                      data: analytics.payments.paymentStatus.map(p => p.count),
+                                      backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
+                                      borderWidth: 0,
+                                    }]
+                                  }}
+                                  options={{
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <p className="text-center text-gray-400 py-8 text-sm">No payment data yet</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* ── Peak Delivery Times ── */}
+                        <div className="bg-white rounded-2xl shadow-md p-5">
+                          <h3 className="font-bold text-gray-800 mb-4">Peak Delivery Times</h3>
+                          <div className="space-y-3">
+                            {analytics.orders.peakTimes.map((t, i) => {
+                              const max = analytics.orders.peakTimes[0]?.count || 1;
+                              const pct = ((t.count / max) * 100).toFixed(0);
+                              return (
+                                <div key={t._id || i}>
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span className="font-medium text-gray-700">{t._id}</span>
+                                    <span className="font-bold text-gray-800">{t.count} orders</span>
+                                  </div>
+                                  <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full transition-all duration-500 ${
+                                      i === 0 ? 'bg-green-500' : i === 1 ? 'bg-blue-500' : 'bg-gray-400'
+                                    }`} style={{ width: `${pct}%` }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {analytics.orders.peakTimes.length === 0 && (
+                              <p className="text-center text-gray-400 py-4 text-sm">No data yet</p>
+                            )}
+                          </div>
+                        </div>
+
+                      </>
+                    ) : (
+                      <div className="text-center py-20">
+                        <FaChartBar className="text-gray-300 text-5xl mx-auto mb-3" />
+                        <p className="text-gray-400">No analytics data available yet</p>
+                        <button onClick={() => fetchAnalytics(analyticsPeriod)}
+                          className="mt-3 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700">
+                          Load Analytics
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 
 
                 

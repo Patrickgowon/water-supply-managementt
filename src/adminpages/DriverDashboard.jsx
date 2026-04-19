@@ -669,7 +669,7 @@ const DriverDashboard = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      if (!token) { navigate('/driver-login'); return; }
+      if (!token) { navigate('/login'); return; }
 
       const profileRes = await axios.get(`${API_URL}/driver/profile`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -777,7 +777,7 @@ const DriverDashboard = () => {
     } catch (err) {
       console.error('Error fetching driver data:', err);
       addToast('error', 'Failed to load dashboard data', err.response?.data?.message);
-      if (err.response?.status === 401) navigate('/driver-login');
+      if (err.response?.status === 401) navigate('/login');
     } finally {
       setLoading(false);
     }
@@ -1613,7 +1613,7 @@ const DriverDashboard = () => {
                                 return;
                               }
                               try {
-                                seting(true);
+                                setWithdrawing(true);  // ✅ correct
                                 const token = localStorage.getItem('token');
                                 await axios.post(`${API_URL}/withdrawals`, {
                                   amount:        Number(withdrawAmount),
@@ -1631,6 +1631,9 @@ const DriverDashboard = () => {
                                 await fetchWithdrawalBalance();
                                 fetchDriverData();
                               } catch (err) {
+                                console.error('❌ Withdrawal error full:', err);
+                                console.error('❌ Withdrawal error response:', err.response?.data);
+                                console.error('❌ Withdrawal status:', err.response?.status);
                                 addToast('error', 'Withdrawal failed', err.response?.data?.message || 'Please try again.');
                               } finally {
                                 setWithdrawing(false);
