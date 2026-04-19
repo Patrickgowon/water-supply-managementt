@@ -10,7 +10,7 @@ import {
   FaStar, FaChartBar, FaMoneyBillWave, FaExclamationTriangle,
   FaCamera, FaSignature, FaToggleOn, FaToggleOff,
   FaGasPump, FaThumbsUp, FaHistory, FaChevronRight,
-  FaBolt, FaShieldAlt, FaTools, FaHeadset, FaKey, FaSpinner,FaBars,
+  FaBolt, FaShieldAlt, FaTools, FaHeadset, FaKey, FaSpinner,FaBars,FaSignOutAlt,
   FaTrashAlt
 } from 'react-icons/fa';
 import { MdOutlineWaterDrop, MdSpeed, MdDirections, MdWarning } from 'react-icons/md';
@@ -548,6 +548,10 @@ const ProfileTab = ({ driverInfo, perf, API_URL, addToast, fetchDriverData }) =>
 const DriverDashboard = () => {
   const navigate = useNavigate();
   const {toasts, add: addToast, remove: removeToast} = useToast();
+
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef(null);
+
   const [loading, setLoading]                         = useState(true);
   const [activeTab, setActiveTab]                     = useState('today');
   const [isOnline, setIsOnline]                       = useState(true);
@@ -785,6 +789,9 @@ const DriverDashboard = () => {
 
   useEffect(() => { fetchDriverData(); }, []);
 
+  
+  
+
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -818,6 +825,7 @@ const DriverDashboard = () => {
     const interval = setInterval(updateLocation, 30000);
     return () => clearInterval(interval);
   }, [isOnline]);
+  
 
   const startDelivery = async (id) => {
     try {
@@ -928,7 +936,7 @@ const DriverDashboard = () => {
 
    
 <header className="bg-white shadow-md sticky top-0 z-40">
-  <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+<div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
     <div className="flex justify-between items-center">
       
       {/* Left: Logo and Title */}
@@ -945,7 +953,6 @@ const DriverDashboard = () => {
           </p>
         </div>
       </div>
-
       {/* Right: Desktop Actions (hidden on mobile) */}
       <div className="hidden sm:flex items-center gap-2">
         <button onClick={() => setShowIncident(true)}
@@ -978,7 +985,9 @@ const DriverDashboard = () => {
             onMarkRead={markAllRead}
             onClearAll={clearAllNotifications}
           />
+          
         </div>
+        
 
         <button onClick={() => setShowSettings(true)}
           className="w-8 h-8 sm:w-9 sm:h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
@@ -988,6 +997,7 @@ const DriverDashboard = () => {
         <div className="h-8 w-8 sm:h-9 sm:w-9 bg-gradient-to-br from-green-600 to-emerald-700 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm">
           {driverInfo.name.split(' ').map(n => n[0]).join('')}
         </div>
+        
       </div>
 
       {/* Mobile: Hamburger Menu Button + Profile */}
@@ -1004,6 +1014,7 @@ const DriverDashboard = () => {
               </span>
             )}
           </button>
+          
           <NotificationsPanel
             show={showNotifications}
             onClose={() => setShowNotifications(false)}
@@ -1011,6 +1022,7 @@ const DriverDashboard = () => {
             onMarkRead={markAllRead}
             onClearAll={clearAllNotifications}
           />
+          
         </div>
 
         {/* Profile Avatar */}
@@ -1019,11 +1031,37 @@ const DriverDashboard = () => {
         </div>
 
         {/* Hamburger Button */}
+        
         <button
           onClick={() => setShowMobileMenu(true)}
-          className="w-8 h-8 bg-gray-100 hover:bg-green-100 rounded-lg flex items-center justify-center transition-colors">
+          className="w-8 h-8 bg-gray-100 hover:bg-green-100 rounded-lg items-center justify-center transition-colors"
+          style={{ display: 'none' }}
+          ref={el => {
+            if (el) {
+              const mediaQuery = window.matchMedia('(max-width: 639px)');
+              el.style.display = mediaQuery.matches ? 'flex' : 'none';
+              mediaQuery.addEventListener('change', (e) => {
+                el.style.display = e.matches ? 'flex' : 'none';
+              });
+            }
+          }}>
           <FaBars className="text-gray-600 text-sm" />
         </button>
+        <button
+            onClick={() => { localStorage.clear(); navigate('/login'); }}
+            className="items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-500 hover:text-red-700 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-medium transition-colors"
+            style={{ display: 'none' }}
+            ref={el => {
+              if (el) {
+                const mediaQuery = window.matchMedia('(min-width: 640px)');
+                el.style.display = mediaQuery.matches ? 'flex' : 'none';
+                mediaQuery.addEventListener('change', (e) => {
+                  el.style.display = e.matches ? 'flex' : 'none';
+                });
+              }
+            }}>
+            <FaSignOutAlt size={11} /> Logout
+      </button>
       </div>
     </div>
   </div>
@@ -1090,6 +1128,11 @@ const DriverDashboard = () => {
       className="w-full flex items-center gap-3 p-3 bg-gray-50 text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
       <FaCog size={14} />
       <span className="text-sm font-medium">Settings</span>
+    </button>
+    <button
+      onClick={() => { localStorage.clear(); navigate('/login'); }}
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-500 hover:text-red-700 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-medium transition-colors">
+      <FaSignOutAlt size={11} /> Logout
     </button>
 
     {/* Driver Info */}

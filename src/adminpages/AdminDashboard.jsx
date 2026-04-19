@@ -1562,50 +1562,204 @@ const resolveIncident = async (driverId, incidentId) => {
     
   
 
-       <header className="bg-white shadow-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-green-600 rounded-xl flex items-center justify-center shadow-md">
-                <MdOutlineDashboard className="text-xl text-white" />
-              </div>
-              <h1 className="text-sm sm:text-xl font-bold text-gray-800">Admin Dashboard</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setShowBroadcast(true)}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold hover:bg-indigo-100 transition-colors">
-                <FaBullhorn size={11} /> Broadcast
-              </button>
-              {stats.pendingOrders > 0 && (
-                <div className="hidden md:flex items-center gap-1.5 bg-yellow-100 px-3 py-1.5 rounded-full border border-yellow-200 cursor-pointer" onClick={() => setActiveTab('orders')}>
-                  <MdOutlinePendingActions className="text-yellow-600" />
-                  <span className="text-xs text-yellow-700 font-semibold">{stats.pendingOrders} pending</span>
-                </div>
-              )}
-              {pendingDriverCount > 0 && (
-                <div className="hidden md:flex items-center gap-1.5 bg-orange-100 px-3 py-1.5 rounded-full border border-orange-200 cursor-pointer" onClick={() => { setActiveTab('drivers'); setFilterStatus('pending'); }}>
-                  <FaTruck className="text-orange-600 text-xs" />
-                  <span className="text-xs text-orange-700 font-semibold">{pendingDriverCount} driver{pendingDriverCount>1?'s':''} pending</span>
-                </div>
-              )}
-              <button className="relative" onClick={() => { setNotifications(p => p.map(n=>({...n,read:true}))); addToast('info','All notifications marked as read'); }}>
-                <FaBell className="text-gray-600 text-xl" />
-                {notifications.filter(n=>!n.read).length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
-                    {notifications.filter(n=>!n.read).length}
-                  </span>
-                )}
-              </button>
-              <button onClick={() => setShowSettings(true)} className="w-9 h-9 hidden bg-gray-100 hover:bg-green-100 rounded-full  items-center justify-center transition-colors">
-                <FaCog className="text-gray-500 text-sm" />
-              </button>
-              <button onClick={() => { localStorage.clear(); navigate('/login'); }} className="flex items-center gap-2 text-sm text-red-500 hover:text-red-700 border border-red-200 hover:bg-red-50 sm:px-3 sm:py-1.5 px-1 py-1 rounded-lg transition-colors font-medium">
-                <FaSignOutAlt size={12} /> Logout
-              </button>
-            </div>
-          </div>
+      <header className="bg-white shadow-md sticky top-0 z-40">
+  <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+    <div className="flex justify-between items-center">
+
+      {/* Left: Logo */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="h-8 w-8 sm:h-10 sm:w-10 bg-green-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md">
+          <MdOutlineDashboard className="text-base sm:text-xl text-white" />
         </div>
-      </header>
+        <h1 className="text-sm sm:text-lg md:text-xl font-bold text-gray-800">Admin Dashboard</h1>
+      </div>
+
+      {/* Right: Desktop Actions */}
+      <div className="hidden md:flex items-center gap-2">
+
+        <button onClick={() => setShowBroadcast(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold hover:bg-indigo-100 transition-colors">
+          <FaBullhorn size={11} /> Broadcast
+        </button>
+
+        {stats.pendingOrders > 0 && (
+          <div className="flex items-center gap-1.5 bg-yellow-100 px-3 py-1.5 rounded-full border border-yellow-200 cursor-pointer"
+            onClick={() => setActiveTab('orders')}>
+            <MdOutlinePendingActions className="text-yellow-600" />
+            <span className="text-xs text-yellow-700 font-semibold">{stats.pendingOrders} pending</span>
+          </div>
+        )}
+
+        {pendingDriverCount > 0 && (
+          <div className="flex items-center gap-1.5 bg-orange-100 px-3 py-1.5 rounded-full border border-orange-200 cursor-pointer"
+            onClick={() => { setActiveTab('drivers'); setFilterStatus('pending'); }}>
+            <FaTruck className="text-orange-600 text-xs" />
+            <span className="text-xs text-orange-700 font-semibold">{pendingDriverCount} driver{pendingDriverCount > 1 ? 's' : ''}</span>
+          </div>
+        )}
+
+        <button
+          onClick={() => { setNotifications(p => p.map(n => ({...n, read: true}))); addToast('info', 'All notifications marked as read'); }}
+          className="relative p-1">
+          <FaBell className="text-gray-600 text-lg" />
+          {notifications.filter(n => !n.read).length > 0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+              {notifications.filter(n => !n.read).length > 9 ? '9+' : notifications.filter(n => !n.read).length}
+            </span>
+          )}
+        </button>
+
+        <button onClick={() => setShowSettings(true)}
+          className="w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
+          <FaCog className="text-gray-500 text-sm" />
+        </button>
+
+        <button onClick={() => navigate('/login')}
+          className="flex items-center gap-2 text-sm font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg transition-colors">
+          <FaSignOutAlt size={12} />
+          Logout
+        </button>
+
+      </div>
+
+      {/* Mobile Actions */}
+      <div className="flex md:hidden items-center gap-1.5">
+        {stats.pendingOrders > 0 && (
+          <div className="flex items-center gap-1 bg-yellow-100 px-2 py-1 rounded-full border border-yellow-200 cursor-pointer"
+            onClick={() => setActiveTab('orders')}>
+            <MdOutlinePendingActions className="text-yellow-600 text-xs" />
+            <span className="text-[10px] text-yellow-700 font-semibold">{stats.pendingOrders}</span>
+          </div>
+        )}
+
+        {pendingDriverCount > 0 && (
+          <div className="flex items-center gap-1 bg-orange-100 px-2 py-1 rounded-full border border-orange-200 cursor-pointer"
+            onClick={() => { setActiveTab('drivers'); setFilterStatus('pending'); }}>
+            <FaTruck className="text-orange-600 text-[10px]" />
+            <span className="text-[10px] text-orange-700 font-semibold">{pendingDriverCount}</span>
+          </div>
+        )}
+
+        <button
+          onClick={() => { setNotifications(p => p.map(n => ({...n, read: true}))); addToast('info', 'All notifications marked as read'); }}
+          className="relative p-1">
+          <FaBell className="text-gray-600 text-base" />
+          {notifications.filter(n => !n.read).length > 0 && (
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+              {notifications.filter(n => !n.read).length > 9 ? '9+' : notifications.filter(n => !n.read).length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setShowMobileMenu(true)}
+          className="w-8 h-8 bg-gray-100 hover:bg-green-100 rounded-lg items-center justify-center transition-colors"
+          style={{ display: 'none' }}
+          ref={el => {
+            if (el) {
+              const mediaQuery = window.matchMedia('(max-width: 639px)');
+              el.style.display = mediaQuery.matches ? 'flex' : 'none';
+              mediaQuery.addEventListener('change', (e) => {
+                el.style.display = e.matches ? 'flex' : 'none';
+              });
+            }
+          }}>
+          <FaBars className="text-gray-600 text-sm" />
+        </button>
+        <button
+          onClick={() => { localStorage.clear(); navigate('/login'); setShowMobileMenu(false); }}
+          className="items-center gap-1.5 ml-2 px-3 py-1.5 bg-red-50 text-red-500 hover:text-red-700 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-medium transition-colors"
+          style={{ display: 'none' }}
+          ref={el => {
+            if (el) {
+              const mediaQuery = window.matchMedia('(min-width: 640px)');
+              el.style.display = mediaQuery.matches ? 'flex' : 'none';
+              mediaQuery.addEventListener('change', (e) => {
+                el.style.display = e.matches ? 'flex' : 'none';
+              });
+            }
+          }}>
+          <FaSignOutAlt size={11} />
+          <span>Logout</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  {/* Mobile Menu Overlay */}
+  {showMobileMenu && (
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 md:hidden"
+      onClick={() => setShowMobileMenu(false)}
+    />
+  )}
+
+  {/* Mobile Slide-out Menu */}
+  <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-2xl z-50 transform transition-all duration-300 ease-in-out md:hidden
+    ${showMobileMenu ? 'translate-x-0' : '-translate-x-full'}`}>
+
+    <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
+      <div className="flex items-center gap-2">
+        <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center">
+          <MdOutlineDashboard className="text-white text-sm" />
+        </div>
+        <h3 className="font-bold text-gray-800 text-sm">Admin Menu</h3>
+      </div>
+      <button onClick={() => setShowMobileMenu(false)}
+        className="w-8 h-8 bg-white hover:bg-red-50 rounded-lg flex items-center justify-center transition-colors shadow-sm">
+        <FaTimes className="text-gray-600 text-xs" />
+      </button>
+    </div>
+
+    <div className="p-4 space-y-2">
+      <button
+        onClick={() => { setShowBroadcast(true); setShowMobileMenu(false); }}
+        className="w-full flex items-center gap-3 p-3 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors">
+        <FaBullhorn size={14} />
+        <span className="text-sm font-medium">Broadcast Message</span>
+      </button>
+
+      {stats.pendingOrders > 0 && (
+        <button
+          onClick={() => { setActiveTab('orders'); setShowMobileMenu(false); }}
+          className="w-full flex items-center gap-3 p-3 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-xl hover:bg-yellow-100 transition-colors">
+          <MdOutlinePendingActions size={14} />
+          <span className="text-sm font-medium flex-1 text-left">Pending Orders</span>
+          <span className="bg-yellow-200 text-yellow-800 text-xs px-2 py-0.5 rounded-full font-bold">{stats.pendingOrders}</span>
+        </button>
+      )}
+
+      {pendingDriverCount > 0 && (
+        <button
+          onClick={() => { setActiveTab('drivers'); setFilterStatus('pending'); setShowMobileMenu(false); }}
+          className="w-full flex items-center gap-3 p-3 bg-orange-50 text-orange-700 border border-orange-200 rounded-xl hover:bg-orange-100 transition-colors">
+          <FaTruck size={14} />
+          <span className="text-sm font-medium flex-1 text-left">Pending Drivers</span>
+          <span className="bg-orange-200 text-orange-800 text-xs px-2 py-0.5 rounded-full font-bold">{pendingDriverCount}</span>
+        </button>
+      )}
+
+      <div className="border-t border-gray-100 my-2" />
+
+      <button
+        onClick={() => { setShowSettings(true); setShowMobileMenu(false); }}
+        className="w-full flex items-center gap-3 p-3 bg-gray-50 text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
+        <FaCog size={14} />
+        <span className="text-sm font-medium">Settings</span>
+      </button>
+
+      <div className="border-t border-gray-100 my-2" />
+
+      <button
+        onClick={() => { localStorage.clear(); navigate('/login'); setShowMobileMenu(false); }}
+        className="w-full flex items-center gap-3 p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition-colors">
+        <FaSignOutAlt size={14} />
+        <span className="text-sm font-medium">Logout</span>
+      </button>
+    </div>
+  </div>
+</header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Welcome Banner */}
