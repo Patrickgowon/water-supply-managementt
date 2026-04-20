@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import {
   FaTruck, FaRoute, FaMapMarkedAlt, FaBell, FaClock,
   FaCheckCircle, FaCalendarAlt, FaMapMarkerAlt, FaPhone,
@@ -606,6 +607,9 @@ const DriverDashboard = () => {
   const [withdrawalHistory, setWithdrawalHistory] = useState([]);
 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState({ lat: null, lng: null, name: '' });
+  const socketRef = useRef(null);
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
   // ─── Fetch withdrawal balance ──────────────────────────────────────────────
   const fetchWithdrawalBalance = async () => {
@@ -1350,51 +1354,91 @@ const DriverDashboard = () => {
             )}
 
             {/* Live Map */}
-            {activeTab === 'map' && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-bold text-gray-800">Live Route Map</h3>
-                  <div className="flex gap-2">
-                    <button onClick={() => setShowRoute(p => !p)}
-                      className="text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium hover:bg-green-100">
-                      {showRoute ? 'Hide Route' : 'Show Route'}
-                    </button>
-                    {activeDelivery && (
-                      <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${activeDelivery.lat},${activeDelivery.lng}`)}
-                        className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">
-                        Open Google Maps
+           {activeTab === 'map' && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-bold text-gray-800">Live Route Map</h3>
+                    <div className="flex gap-2">
+                      <button onClick={() => setShowRoute(p => !p)}
+                        className="text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium hover:bg-green-100">
+                        {showRoute ? 'Hide Route' : 'Show Route'}
                       </button>
-                    )}
+                      {activeDelivery && (
+                        <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${activeDelivery.lat},${activeDelivery.lng}`)}
+                          className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">
+                          Open Google Maps
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Current Location Badge */}
+                  {currentLocation.name && (
+                    <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-100 rounded-xl">
+                      <FaMapMarkerAlt className="text-green-600 shrink-0" />
+                      <div>
+                        <p className="text-xs text-gray-500">Your current location</p>
+                        <p className="text-sm font-semibold text-gray-800">{currentLocation.name}</p>
+                      </div>
+                      <span className="ml-auto flex items-center gap-1 text-xs text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                        Live
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="h-96 rounded-2xl overflow-hidden shadow-inner">
+                    <MapContainer
+                      center={currentLocation.lat ? [currentLocation.lat, currentLocation.lng] : [9.3265, 8.9947]}
+                      zoom={14}
+                      style={{ height: '100%', width: '100%' }}>
+                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
+                      {showRoute && <Polyline positions={[[9.3265, 8.9947], [9.3280, 8.9910], [9.3310, 8.9870]]} color="#10B981" weight={4} opacity={0.8} />}
+
+                      {/* Driver's real location marker */}
+                      {currentLocation.lat && (
+                        <Marker
+                          position={[currentLocation.lat, currentLocation.lng]}
+                          icon={L.divIcon({
+                            className: '',
+                            html: `<div style="background:#16a34a;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:20px;border:3px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.3)">🚚</div>`,
+                            iconSize: [44, 44],
+                            iconAnchor: [22, 22],
+                            popupAnchor: [0, -22]
+                          })}>
+                          <Popup>
+                            <div className="p-1">
+                              <strong>📍 {driverInfo.name}</strong><br />
+                              <span className="text-xs text-gray-600">{currentLocation.name}</span><br />
+                              <span className="text-xs text-gray-400">{driverInfo.tanker}</span>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      )}
+
+                      {/* Delivery markers */}
+                      {deliveries.filter(d => d.status !== 'completed').map(d => (
+                        <Marker key={d.id || d._id} position={[d.lat || 9.3265, d.lng || 8.9947]}>
+                          <Popup><strong>{d.location}</strong><br />{d.address}<br />{d.amount}L · {d.recipient}</Popup>
+                        </Marker>
+                      ))}
+                    </MapContainer>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      ['📍 My Location', currentLocation.name || 'Getting location...'],
+                      ['ETA',            activeDelivery?.eta || '—'],
+                      ['Stops Left',     `${pendingToday + (activeDelivery ? 1 : 0)} remaining`]
+                    ].map(([l, v]) => (
+                      <div key={l} className="bg-green-50 p-3 rounded-xl border border-green-100">
+                        <p className="text-xs text-green-600 font-medium">{l}</p>
+                        <p className="text-sm font-bold text-gray-800 mt-1 truncate">{v}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="h-96 rounded-2xl overflow-hidden shadow-inner">
-                  <MapContainer center={[9.3265, 8.9947]} zoom={14} style={{ height: '100%', width: '100%' }}>
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
-                    {showRoute && <Polyline positions={[[9.3265, 8.9947], [9.3280, 8.9910], [9.3310, 8.9870]]} color="#10B981" weight={4} opacity={0.8} />}
-                    <Marker position={[9.3265, 8.9947]}>
-                      <Popup><strong>📍 Current Position</strong><br />{driverInfo.name} · {driverInfo.tanker}</Popup>
-                    </Marker>
-                    {deliveries.filter(d => d.status !== 'completed').map(d => (
-                      <Marker key={d.id || d._id} position={[d.lat || 9.3265, d.lng || 8.9947]}>
-                        <Popup><strong>{d.location}</strong><br />{d.address}<br />{d.amount}L · {d.recipient}</Popup>
-                      </Marker>
-                    ))}
-                  </MapContainer>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    ['Current Stop', activeDelivery?.location || 'None active'],
-                    ['ETA',          activeDelivery?.eta      || '—'],
-                    ['Stops Left',   `${pendingToday + (activeDelivery ? 1 : 0)} remaining`]
-                  ].map(([l, v]) => (
-                    <div key={l} className="bg-green-50 p-3 rounded-xl border border-green-100">
-                      <p className="text-xs text-green-600 font-medium">{l}</p>
-                      <p className="text-sm font-bold text-gray-800 mt-1">{v}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
 
             {/* Earnings */}
             {activeTab === 'earnings' && (

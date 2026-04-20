@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   LogIn, Eye, EyeOff, Mail, Lock, AlertCircle,
@@ -33,27 +33,8 @@ const LoginPage = () => {
     hasUpper: false, hasLower: false, hasSpecial: false
   });
 
-  // ── Redirect if already logged in ─────────────────────────────────────────
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const user  = localStorage.getItem('user');
-
-    if (token && user) {
-      try {
-        const userData = JSON.parse(user);
-        if (userData.role === 'admin') {
-          navigate('/admin-dashboard', { replace: true });
-        } else if (userData.role === 'driver') {
-          navigate('/driver-dashboard', { replace: true });
-        } else {
-          navigate('/student-dashboard', { replace: true });
-        }
-      } catch {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
-    }
-  }, [navigate]);
+  // ✅ REMOVED: socket.io useEffect - not needed for login page
+  // ✅ REMOVED: location tracking useEffect - not needed for login page
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -375,7 +356,7 @@ const LoginPage = () => {
         </p>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes slideDown {
           from { opacity: 0; transform: translateY(-10px); }
           to   { opacity: 1; transform: translateY(0); }

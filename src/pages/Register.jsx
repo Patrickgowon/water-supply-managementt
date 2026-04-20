@@ -683,10 +683,13 @@ const RegisterPage = () => {
           </form>
         </div>
 
-        <div className="hidden md:block mt-6 text-center">
+        <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
             Already have an account?{' '}
-            <Link to="/login" className="text-green-600 hover:text-green-700 font-medium inline-flex items-center gap-1">
+            <Link
+              to="/login"
+              onClick={() => localStorage.clear()}
+              className="text-green-600 hover:text-green-700 font-medium inline-flex items-center gap-1">
               Sign in here <ArrowRight className="h-4 w-4" />
             </Link>
           </p>

@@ -5,7 +5,8 @@ import {
   User, Mail, Lock, Phone, Eye, EyeOff, AlertCircle,
   CheckCircle, Loader2, Shield, ArrowRight, ArrowLeft,
   Droplets, XCircle, CheckSquare, Truck, Hash, MapPin,
-  FileText, Star, Calendar, CreditCard, Camera, Wrench
+  FileText, Star, Calendar, CreditCard, Camera, Wrench,
+  KeyRound, Send, RefreshCw
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -28,13 +29,21 @@ const useToast = () => {
 
 const DriverRegisterPage = () => {
   const navigate = useNavigate();
-  const { toast, success, error } = useToast();
+  const { toast, success, error, info } = useToast();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registerStatus, setRegisterStatus] = useState({ type: '', message: '' });
+  
+  // OTP states
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpEmail, setOtpEmail] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [registrationData, setRegistrationData] = useState(null);
 
   const [formData, setFormData] = useState({
     // Step 1 – Personal
@@ -55,6 +64,20 @@ const DriverRegisterPage = () => {
   const vehicleTypes   = ['5,000L Tanker', '8,000L Tanker', '10,000L Tanker', '15,000L Tanker', '20,000L Tanker'];
   const capacityOptions= ['5000', '8000', '10000', '15000', '20000'];
   const expOptions     = ['< 1 year', '1–2 years', '3–5 years', '5–10 years', '10+ years'];
+
+  // ── OTP Timer ────────────────────────────────────────────────────────────────
+  const startResendTimer = () => {
+    setResendTimer(60);
+    const interval = setInterval(() => {
+      setResendTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const handleInputChange = (field, value) => {
@@ -133,9 +156,8 @@ const DriverRegisterPage = () => {
   const handleNext = () => { if (validateStep(currentStep)) setCurrentStep(p => p + 1); };
   const handlePrevious = () => setCurrentStep(p => p - 1);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateStep(4)) return;
+  // ── Submit registration (without OTP) ───────────────────────────────────────
+  const submitRegistration = async () => {
     setIsSubmitting(true);
     setRegisterStatus({ type: '', message: '' });
     try {
@@ -159,11 +181,16 @@ const DriverRegisterPage = () => {
         password:         formData.password,
         confirmPassword:  formData.confirmPassword,
       });
-      setRegisterStatus({ type: 'success', message: response.data.message });
-  
-          success('Registration successful! Redirecting to login...');
-        localStorage.clear(); // ← clear any token from registration
-        setTimeout(() => navigate('/login'), 3000);
+      
+      // Store registration data for potential resend
+      setRegistrationData(response.data.data);
+      setOtpEmail(formData.email);
+      
+      // Show OTP modal instead of auto-login
+      setShowOtpModal(true);
+      startResendTimer();
+      info('Verification code sent to your email!');
+      
     } catch (err) {
       console.error('❌ Driver registration error:', err);
       const msg =
@@ -175,6 +202,62 @@ const DriverRegisterPage = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // ── Verify OTP ──────────────────────────────────────────────────────────────
+  const verifyOtp = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      error('Please enter a valid 6-digit OTP code');
+      return;
+    }
+    
+    setOtpLoading(true);
+    try {
+      const response = await axios.post(`${API_URL}/auth/driver/verify-otp`, {
+        email: otpEmail,
+        otp: otpCode
+      });
+      
+      if (response.data.success) {
+        success('Email verified successfully! Redirecting to login...');
+        setShowOtpModal(false);
+        localStorage.clear();
+        setTimeout(() => navigate('/login'), 3000);
+      }
+    } catch (err) {
+      console.error('OTP verification error:', err);
+      error(err.response?.data?.message || 'Invalid or expired OTP code');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // ── Resend OTP ──────────────────────────────────────────────────────────────
+  const resendOtp = async () => {
+    if (resendTimer > 0) return;
+    
+    setOtpLoading(true);
+    try {
+      const response = await axios.post(`${API_URL}/auth/driver/resend-otp`, {
+        email: otpEmail
+      });
+      
+      if (response.data.success) {
+        success('New verification code sent to your email!');
+        startResendTimer();
+      }
+    } catch (err) {
+      console.error('Resend OTP error:', err);
+      error(err.response?.data?.message || 'Failed to resend OTP code');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateStep(4)) return;
+    await submitRegistration();
   };
 
   // ── Steps config ─────────────────────────────────────────────────────────────
@@ -209,6 +292,70 @@ const DriverRegisterPage = () => {
         } text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2`}>
           {toast.type === 'success' ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
           <span className="text-sm">{toast.message}</span>
+        </div>
+      )}
+
+      {/* OTP Verification Modal */}
+      {showOtpModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6 animate-in zoom-in-95 duration-300">
+            <div className="text-center mb-5">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <KeyRound className="h-8 w-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-800">Verify Your Email</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                We've sent a 6-digit verification code to<br />
+                <span className="font-semibold text-green-600">{otpEmail}</span>
+              </p>
+            </div>
+            
+            <div className="mb-5">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Enter OTP Code</label>
+              <input
+                type="text"
+                maxLength="6"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="000000"
+                className="w-full text-center text-2xl tracking-widest border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+            
+            <div className="flex justify-between items-center mb-5">
+              <button
+                onClick={resendOtp}
+                disabled={resendTimer > 0 || otpLoading}
+                className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`h-4 w-4 ${otpLoading ? 'animate-spin' : ''}`} />
+                {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code'}
+              </button>
+              <button
+                onClick={() => setShowOtpModal(false)}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+            
+            <button
+              onClick={verifyOtp}
+              disabled={otpLoading || otpCode.length !== 6}
+              className="w-full py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-semibold hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+            >
+              {otpLoading ? (
+                <><Loader2 className="h-5 w-5 animate-spin" /> Verifying...</>
+              ) : (
+                <><CheckCircle className="h-5 w-5" /> Verify & Complete Registration</>
+              )}
+            </button>
+            
+            <p className="text-center text-xs text-gray-400 mt-4">
+              Didn't receive the code? Check your spam folder or click resend.
+            </p>
+          </div>
         </div>
       )}
 
@@ -668,7 +815,7 @@ const DriverRegisterPage = () => {
                   className={`${currentStep > 1 ? 'ml-auto' : 'w-full'} px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm font-medium transition-all`}>
                   {isSubmitting
                     ? <><Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />Submitting...</>
-                    : <><CheckSquare className="h-3 w-3 md:h-4 md:w-4" />Complete Registration</>}
+                    : <><Send className="h-3 w-3 md:h-4 md:w-4" />Complete Registration</>}
                 </button>
               )}
             </div>
@@ -676,10 +823,13 @@ const DriverRegisterPage = () => {
         </div>
 
         {/* Desktop sign-in link */}
-        <div className="hidden md:block mt-6 text-center">
+        <div className=" mt-6 text-center">
           <p className="text-sm text-gray-600">
             Already have an account?{' '}
-            <Link to="/login" className="text-green-600 hover:text-green-700 font-medium inline-flex items-center gap-1">
+            <Link
+              to="/login"
+              onClick={() => localStorage.clear()}
+              className="text-green-600 hover:text-green-700 font-medium inline-flex items-center gap-1">
               Sign in here <ArrowRight className="h-4 w-4" />
             </Link>
           </p>
@@ -692,8 +842,7 @@ const DriverRegisterPage = () => {
             <span className="text-xs md:text-sm font-medium text-green-900">Driver Verification Process</span>
           </div>
           <p className="text-[10px] md:text-xs text-green-700">
-            After registration, your license and vehicle details will be reviewed by an admin within 24–48 hours.
-            You will receive an email once your account is activated.
+            After registration, you'll receive an OTP to verify your email. Once verified, your license and vehicle details will be reviewed by an admin within 24–48 hours. You will receive an email once your account is activated.
           </p>
         </div>
 

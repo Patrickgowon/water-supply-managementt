@@ -1,7 +1,8 @@
 // src/pages/AdminDashboard.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback,useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import {
   FaTint, FaTruck, FaUsers, FaBell, FaClock,
   FaCheckCircle, FaExclamationTriangle,
@@ -998,6 +999,10 @@ const [rejectNote, setRejectNote]                 = useState('');
 const [showRejectModal, setShowRejectModal]       = useState(false);
 const [selectedWithdrawal, setSelectedWithdrawal] = useState(null);
 
+const [liveDriverLocations, setLiveDriverLocations] = useState({});
+const socketRef = useRef(null);
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+
 
 // Add this state near your other useState declarations
 const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -1044,6 +1049,41 @@ const [showMobileMenu, setShowMobileMenu] = useState(false);
       fetchAnalytics(analyticsPeriod);
     }
   }, [activeTab, analyticsPeriod, fetchAnalytics]);
+
+  // ─── Socket.io — Admin live tracking ────────────────────────────────────────
+    useEffect(() => {
+      socketRef.current = io(SOCKET_URL, {
+        transports: ['websocket'],
+      });
+
+      socketRef.current.on('connect', () => {
+        console.log('🔌 Admin socket connected');
+        socketRef.current.emit('admin:joinTracking');
+      });
+
+      // Listen for driver location updates
+      socketRef.current.on('driver:locationUpdate', (data) => {
+        const { driverId, lat, lng, locationName, timestamp } = data;
+        setLiveDriverLocations(prev => ({
+          ...prev,
+          [driverId]: { lat, lng, locationName, timestamp }
+        }));
+        // Also update drivers array currentLocation
+        setDrivers(prev => prev.map(d =>
+          (d._id || d.id) === driverId
+            ? { ...d, currentLocation: locationName, currentLat: lat, currentLng: lng }
+            : d
+        ));
+      });
+
+      socketRef.current.on('disconnect', () => {
+        console.log('🔌 Admin socket disconnected');
+      });
+
+      return () => {
+        if (socketRef.current) socketRef.current.disconnect();
+      };
+    }, []);
 
     // ─── WITHDRAWAL FUNCTIONS ──────────────────────────────────────────────────
     const fetchWithdrawals = useCallback(async () => {
@@ -1447,16 +1487,20 @@ const [showMobileMenu, setShowMobileMenu] = useState(false);
   };
   const tileAttr = { streets:'&copy; OpenStreetMap', satellite:'&copy; Esri', terrain:'&copy; OpenTopoMap' };
 
-  const driverLocations = drivers.map(d => ({
-    id: d._id || d.id,
-    name: `${d.firstName} ${d.lastName}`,
-    position: [9.3265+(Math.random()-0.5)*0.02, 8.9947+(Math.random()-0.5)*0.02],
-    status: d.online ? 'active' : 'offline',
-    tankerId: d.tankerId,
-    speed: d.online ? Math.floor(Math.random()*50) : 0,
-    lastUpdate: 'Just now',
-    currentOrder: null
-  }));
+  const driverLocations = drivers.map(d => {
+  const live = liveDriverLocations[d._id || d.id];
+  return {
+    id:           d._id || d.id,
+    name:         `${d.firstName} ${d.lastName}`,
+    position:     live ? [live.lat, live.lng] : [9.3265+(Math.random()-0.5)*0.02, 8.9947+(Math.random()-0.5)*0.02],
+    locationName: live?.locationName || d.currentLocation || 'Location unknown',
+    status:       d.online ? 'active' : 'offline',
+    tankerId:     d.tankerId,
+    isLive:       !!live,
+    lastUpdate:   live ? new Date(live.timestamp).toLocaleTimeString() : 'No data',
+  };
+});
+
  const fetchIncidents = useCallback(async () => {
   try {
     setIncidentsLoading(true);
@@ -2309,17 +2353,22 @@ const resolveIncident = async (driverId, incidentId) => {
                             iconSize:[40,40],iconAnchor:[20,20],popupAnchor:[0,-20]
                           })}>
                             <Popup>
-                              <div className="p-2 min-w-[180px]">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className={`w-2 h-2 rounded-full ${d.status==='active'?'bg-green-500':'bg-gray-400'}`}/>
-                                  <strong>{d.name}</strong>
+                                <div className="p-2 min-w-[200px]">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className={`w-2 h-2 rounded-full ${d.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                    <strong>{d.name}</strong>
+                                    {d.isLive && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-bold">🔴 LIVE</span>}
+                                  </div>
+                                  <p className="text-xs text-gray-600 mb-1">🚛 {d.tankerId}</p>
+                                  <p className="text-xs text-gray-600 mb-1">📍 {d.locationName}</p>
+                                  <p className="text-xs text-gray-400">{d.lastUpdate}</p>
+                                  <button
+                                    onClick={() => setMapCenter(d.position)}
+                                    className="mt-2 w-full bg-green-600 text-white text-xs py-1.5 rounded-lg">
+                                    Track
+                                  </button>
                                 </div>
-                                <p className="text-sm">🚛 {d.tankerId}</p>
-                                <p className="text-sm">⚡ {d.speed} km/h</p>
-                                <p className="text-xs text-gray-400 mt-1">{d.lastUpdate}</p>
-                                <button onClick={() => setMapCenter(d.position)} className="mt-2 w-full bg-green-600 text-white text-xs py-1.5 rounded-lg">Track</button>
-                              </div>
-                            </Popup>
+                              </Popup>
                           </Marker>
                         ))}
                         {showAllOrders && orders.filter(o=>o.status!=='completed'&&o.status!=='cancelled').slice(0,5).map((o,i)=>{
@@ -2345,21 +2394,22 @@ const resolveIncident = async (driverId, incidentId) => {
                         {showRoutes&&selDriverMap&&<Polyline positions={[selDriverMap.position,[9.3280,8.9910]]} color="#10B981" weight={3} dashArray="6,4"/>}
                       </MapContainer>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {driverLocations.map(d=>(
-                        <div key={d.id} onClick={() => {setSelDriverMap(d);setMapCenter(d.position);}}
-                          className={`p-3 rounded-xl border-2 cursor-pointer transition-all hover:shadow-md ${selDriverMap?.id===d.id?'border-green-500 bg-green-50':'border-gray-100 bg-white'}`}>
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className={`w-2 h-2 rounded-full ${d.status==='active'?'bg-green-500 animate-pulse':'bg-gray-400'}`}/>
-                              <p className="text-xs font-bold text-gray-800 truncate">{d.name}</p>
-                            </div>
-                            <span className="text-xs text-gray-400">{d.tankerId}</span>
+                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {driverLocations.map(d => (
+                      <div key={d.id} onClick={() => { setSelDriverMap(d); setMapCenter(d.position); }}
+                        className={`p-3 rounded-xl border-2 cursor-pointer transition-all hover:shadow-md ${selDriverMap?.id === d.id ? 'border-green-500 bg-green-50' : 'border-gray-100 bg-white'}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${d.status === 'active' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                            <p className="text-xs font-bold text-gray-800 truncate">{d.name}</p>
                           </div>
-                          <p className="text-xs text-gray-500">{d.speed} km/h · {d.lastUpdate}</p>
+                          <span className="text-xs text-gray-400">{d.tankerId}</span>
                         </div>
-                      ))}
+                        <p className="text-xs text-gray-600 truncate">📍 {d.locationName}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{d.isLive ? '🔴 Live' : '⚫ ' + d.lastUpdate}</p>
                     </div>
+  ))}
+</div>
                   </div>
                 )}
 
