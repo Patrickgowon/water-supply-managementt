@@ -20,6 +20,18 @@ import {
 } from 'chart.js';
 import axios from 'axios';
 
+import { io } from 'socket.io-client';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl:       'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl:     'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -63,11 +75,28 @@ const useToast = () => {
 const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearAll }) => {
   const ref = useRef(null);
 
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
-    if (show) document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [show, onClose]);
+ useEffect(() => {
+  const handler = (e) => {
+    if (
+      ref.current &&
+      !ref.current.contains(e.target) &&
+      !e.target.closest('[data-notification-trigger]')
+    ) {
+      onClose();
+    }
+  };
+  if (show) {
+    // Small delay so the button click that opens it doesn't immediately close it
+    const timeout = setTimeout(() => {
+      document.addEventListener('mousedown', handler);
+    }, 100);
+    return () => {
+      clearTimeout(timeout);
+      document.removeEventListener('mousedown', handler);
+    };
+  }
+  return () => document.removeEventListener('mousedown', handler);
+}, [show, onClose]);
 
   if (!show) return null;
 
@@ -271,8 +300,29 @@ const StudentDashboard = () => {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const markAllRead = () => setNotifications(p => p.map(n => ({ ...n, read: true })));
-  const clearAllNotifications = () => setNotifications([]);
+  const markAllRead = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    await axios.put(`${API_URL}/student/notifications/mark-read`, {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setNotifications(p => p.map(n => ({ ...n, read: true })));
+  } catch (err) {
+    console.error('Error marking notifications read:', err);
+  }
+};
+  const clearAllNotifications = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    await axios.delete(`${API_URL}/student/notifications`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setNotifications([]);
+  } catch (err) {
+    console.error('Error clearing notifications:', err);
+    addToast('error', 'Failed to clear notifications');
+  }
+};
 
   // ── Settings state (loaded from API) ──────────────────────────────────────
   const [settings, setSettings] = useState(null);
@@ -321,6 +371,11 @@ const StudentDashboard = () => {
     price1500L: 12000,
   });
 
+  const [assignedDriver, setAssignedDriver] = useState(null);
+  const [driverLocation, setDriverLocation] = useState(null);
+  const socketRef = useRef(null);
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+
   useEffect(() => {
     if (user) {
       setProfileForm({
@@ -332,6 +387,58 @@ const StudentDashboard = () => {
       });
     }
   }, [user]);
+
+  // ─── Socket.io — Track assigned driver ───────────────────────────────────────
+useEffect(() => {
+  // Find active/approved request with assigned driver
+  const activeRequest = requests.find(r =>
+    (r.status === 'approved' || r.status === 'in-progress') && r.driver
+  );
+
+  if (!activeRequest) return;
+
+  const driverId = typeof activeRequest.driver === 'object'
+    ? activeRequest.driver._id
+    : activeRequest.driver;
+
+  if (!driverId) return;
+
+  // Save assigned driver info
+  setAssignedDriver({
+    driverId,
+    name: typeof activeRequest.driver === 'object'
+      ? `${activeRequest.driver.firstName || ''} ${activeRequest.driver.lastName || ''}`.trim()
+      : 'Your Driver',
+    tanker: activeRequest.tanker || '',
+    requestId: activeRequest._id,
+  });
+
+  // Connect socket and track driver
+  socketRef.current = io(SOCKET_URL, { transports: ['websocket'] });
+
+  socketRef.current.on('connect', () => {
+    console.log('🔌 Student socket connected');
+    socketRef.current.emit('student:trackDriver', driverId);
+  });
+
+  socketRef.current.on('driver:locationUpdate', (data) => {
+    if (data.driverId === driverId) {
+      setDriverLocation({
+        lat:          data.lat,
+        lng:          data.lng,
+        locationName: data.locationName,
+        timestamp:    data.timestamp,
+      });
+    }
+  });
+
+  return () => {
+    if (socketRef.current) {
+      socketRef.current.emit('student:stopTracking', driverId);
+      socketRef.current.disconnect();
+    }
+  };
+}, [requests]);
 
   // Close user menu on outside click
   useEffect(() => {
@@ -432,20 +539,24 @@ const StudentDashboard = () => {
         }
 
         try {
-          const notifRes = await axios.get(`${API_URL}/student/notifications`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const inAppNotifs = notifRes.data.notifications || notifRes.data.data?.notifications || [];
-          if (inAppNotifs.length > 0) {
-            setNotifications(inAppNotifs.map(n => ({
-              id:      n._id || n.id,
-              type:    n.type || 'info',
-              title:   n.title,
-              message: n.message,
-              time:    n.createdAt ? new Date(n.createdAt).toLocaleString() : 'Just now',
-              read:    n.read || false,
-            })));
-          }
+  const notifRes = await axios.get(`${API_URL}/student/notifications`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  const inAppNotifs =
+    notifRes.data.notifications ||
+    notifRes.data.data?.notifications ||
+    [];
+
+  setNotifications(inAppNotifs.map(n => ({
+    id:      n._id || n.id,
+    type:    n.type || 'info',
+    title:   n.title,
+    message: n.message,
+    time:    n.createdAt ? new Date(n.createdAt).toLocaleString() : 'Just now',
+    read:    n.read || false,
+  })));
+
         } catch (notifErr) {
           console.error('Error fetching notifications:', notifErr);
         }
@@ -685,12 +796,13 @@ const StudentDashboard = () => {
   const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } } } };
 
   const TABS = [
-    { id: 'overview',  label: 'Overview' },
-    { id: 'history',   label: 'Delivery History' },
-    { id: 'requests',  label: 'My Requests' },
-    { id: 'profile',   label: 'Profile' },
-    { id: 'settings',  label: 'Settings' },
-  ];
+  { id: 'overview',  label: 'Overview' },
+  { id: 'tracking',  label: '🚚 Track Driver' },  // ← ADD THIS
+  { id: 'history',   label: 'Delivery History' },
+  { id: 'requests',  label: 'My Requests' },
+  { id: 'profile',   label: 'Profile' },
+  { id: 'settings',  label: 'Settings' },
+];
 
   const inputClass = "w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none";
 
@@ -1437,6 +1549,104 @@ const StudentDashboard = () => {
                       </button>
                     </div>
                   </div>
+                )}
+              </div>
+            )}
+            {/* ── Track Driver ── */}
+            {activeTab === 'tracking' && (
+              <div className="space-y-4">
+                <h3 className="font-semibold text-gray-800">Live Driver Tracking</h3>
+
+                {!assignedDriver ? (
+                  <div className="text-center py-16 text-gray-400">
+                    <FaTruck className="text-5xl mx-auto mb-3 opacity-20" />
+                    <p className="text-sm font-medium text-gray-500">No active delivery to track</p>
+                    <p className="text-xs text-gray-400 mt-1">Once admin approves and assigns a driver to your request, you'll see their live location here.</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Driver Info Card */}
+                    <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-100 rounded-xl">
+                      <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0">
+                        🚚
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-800">{assignedDriver.name}</p>
+                        <p className="text-xs text-gray-500">Tanker: {assignedDriver.tanker}</p>
+                        {driverLocation ? (
+                          <p className="text-xs text-green-600 font-medium mt-0.5 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse inline-block" />
+                            📍 {driverLocation.locationName}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                            <FaSpinner className="animate-spin" size={10} /> Waiting for driver location...
+                          </p>
+                        )}
+                      </div>
+                      {driverLocation && (
+                        <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">
+                          🔴 LIVE
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Live Map */}
+                    <div className="h-80 rounded-2xl overflow-hidden shadow-inner border border-gray-100">
+                      <MapContainer
+                        center={driverLocation ? [driverLocation.lat, driverLocation.lng] : [9.3265, 8.9947]}
+                        zoom={15}
+                        style={{ height: '100%', width: '100%' }}>
+                        <TileLayer
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          attribution='&copy; OpenStreetMap'
+                        />
+                        {driverLocation && (
+                          <Marker
+                            position={[driverLocation.lat, driverLocation.lng]}
+                            icon={L.divIcon({
+                              className: '',
+                              html: `<div style="background:#16a34a;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:20px;border:3px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.3)">🚚</div>`,
+                              iconSize: [44, 44],
+                              iconAnchor: [22, 22],
+                              popupAnchor: [0, -22]
+                            })}>
+                            <Popup>
+                              <div className="p-1 text-center">
+                                <strong>{assignedDriver.name}</strong><br />
+                                <span className="text-xs text-gray-600">📍 {driverLocation.locationName}</span><br />
+                                <span className="text-xs text-gray-400">
+                                  Updated: {new Date(driverLocation.timestamp).toLocaleTimeString()}
+                                </span>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        )}
+                      </MapContainer>
+                    </div>
+
+                    {/* Info Row */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                        <p className="text-xs text-blue-600 font-medium">📍 Current Location</p>
+                        <p className="text-sm font-bold text-gray-800 mt-1 truncate">
+                          {driverLocation?.locationName || 'Getting location...'}
+                        </p>
+                      </div>
+                      <div className="bg-green-50 p-3 rounded-xl border border-green-100">
+                        <p className="text-xs text-green-600 font-medium">🕐 Last Update</p>
+                        <p className="text-sm font-bold text-gray-800 mt-1">
+                          {driverLocation
+                            ? new Date(driverLocation.timestamp).toLocaleTimeString()
+                            : '—'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3 text-xs text-yellow-700">
+                      ℹ️ Location updates every 30 seconds. Make sure someone is available at your room to receive the delivery.
+                    </div>
+                  </>
                 )}
               </div>
             )}
