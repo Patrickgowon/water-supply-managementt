@@ -34,7 +34,7 @@ L.Icon.Default.mergeOptions({
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://plasu-hydrotrack-backend.onrender.com/api';
 const PAYSTACK_PUBLIC_KEY = 'pk_test_bed221a6bf478e70a90fe3238af9d4162bfa99e5';
 
 // ─── TOAST ────────────────────────────────────────────────────────────────────
@@ -351,7 +351,7 @@ const StudentDashboard = () => {
   const [assignedDriver, setAssignedDriver] = useState(null);
   const [driverLocation, setDriverLocation] = useState(null);
   const socketRef = useRef(null);
-  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-backend.onrender.com';
 
   useEffect(() => {
     if (user) {
