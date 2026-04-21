@@ -75,28 +75,10 @@ const useToast = () => {
 const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearAll }) => {
   const ref = useRef(null);
 
- useEffect(() => {
-  const handler = (e) => {
-    if (
-      ref.current &&
-      !ref.current.contains(e.target) &&
-      !e.target.closest('[data-notification-trigger]')
-    ) {
-      onClose();
-    }
+  // ── Stop panel from closing when clicking inside it ──
+  const handlePanelClick = (e) => {
+    e.stopPropagation();
   };
-  if (show) {
-    // Small delay so the button click that opens it doesn't immediately close it
-    const timeout = setTimeout(() => {
-      document.addEventListener('mousedown', handler);
-    }, 100);
-    return () => {
-      clearTimeout(timeout);
-      document.removeEventListener('mousedown', handler);
-    };
-  }
-  return () => document.removeEventListener('mousedown', handler);
-}, [show, onClose]);
 
   if (!show) return null;
 
@@ -109,27 +91,23 @@ const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearA
 
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* Mobile Overlay — clicking this closes panel */}
       <div 
-        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40   sm:hidden transition-opacity duration-300
-          ${show ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 sm:hidden"
         onClick={onClose}
       />
 
-      {/* Notifications Panel */}
+      {/* Panel — clicking inside does NOT close */}
       <div 
         ref={ref}
-        className={`fixed sm:absolute sm:right-0 sm:top-12  mt-7
+        onClick={handlePanelClick}
+        className={`fixed sm:absolute sm:right-0 sm:top-12 mt-7
           inset-y-0 left-0 sm:inset-y-auto sm:left-auto
           w-72 xs:w-80 sm:w-80 
           bg-white shadow-2xl border border-gray-100 z-50 overflow-hidden
-          transform transition-all duration-300 ease-in-out
-          sm:rounded-2xl
-          ${show ? 'translate-x-0' : '-translate-x-full'}
-          sm:transform-none sm:transition-none sm:translate-x-0
-          ${!show ? 'sm:hidden' : ''}`}>
+          sm:rounded-2xl`}>
         
-        {/* Mobile Header with Close Button */}
+        {/* Mobile Header */}
         <div className="sm:hidden flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
           <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
             Notifications
@@ -139,8 +117,7 @@ const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearA
               </span>
             )}
           </h3>
-          <button 
-            onClick={onClose}
+          <button onClick={onClose}
             className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center">
             <FaTimes className="text-gray-600 text-sm" />
           </button>
@@ -163,9 +140,9 @@ const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearA
           </div>
         </div>
 
-        {/* Mobile Actions Bar */}
+        {/* Mobile Actions */}
         <div className="sm:hidden flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-white">
-          <div className="flex items-center gap-3">
+          <div>
             {notifications.filter(n => !n.read).length > 0 && (
               <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
                 {notifications.filter(n => !n.read).length} unread
@@ -186,7 +163,7 @@ const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearA
           </div>
         </div>
 
-        {/* List - with percentage height on mobile */}
+        {/* List */}
         <div className="h-full sm:max-h-80 overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="py-12 sm:py-8 text-center">
@@ -195,11 +172,11 @@ const NotificationsPanel = ({ show, onClose, notifications, onMarkRead, onClearA
             </div>
           ) : (
             notifications.map(n => (
-              <div key={n.id} 
+              <div key={n.id}
                 className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!n.read ? 'bg-blue-50/40' : ''}`}>
                 {getIcon(n.type)}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm sm:text-xs font-semibold text-gray-800 ${!n.read ? 'font-bold' : ''}`}>
+                  <p className={`text-sm sm:text-xs text-gray-800 ${!n.read ? 'font-bold' : 'font-semibold'}`}>
                     {n.title}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
@@ -392,14 +369,16 @@ const StudentDashboard = () => {
 useEffect(() => {
   // Find active/approved request with assigned driver
   const activeRequest = requests.find(r =>
-    (r.status === 'approved' || r.status === 'in-progress') && r.driver
-  );
+  (r.status === 'approved' || r.status === 'in-progress' || 
+   r.status === 'assigned' || r.status === 'scheduled') && 
+  (r.driver || r.assignedDriver)
+);
 
   if (!activeRequest) return;
 
   const driverId = typeof activeRequest.driver === 'object'
-    ? activeRequest.driver._id
-    : activeRequest.driver;
+  ? activeRequest.driver._id
+  : activeRequest.driver || activeRequest.assignedDriver;
 
   if (!driverId) return;
 
@@ -603,6 +582,7 @@ useEffect(() => {
     } catch (err) { console.error('Error fetching requests:', err); }
   }, []);
 
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
   useEffect(() => { if (activeTab === 'requests') fetchRequests(); }, [activeTab, fetchRequests]);
 
   // Payment handlers
@@ -876,6 +856,7 @@ useEffect(() => {
 
         <div className="relative">
           <button
+            data-notification-trigger
             onClick={() => { setShowNotifications(p => !p); setShowUserMenu(false); }}
             className="relative w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors"
             title="Notifications">
@@ -898,6 +879,7 @@ useEffect(() => {
         {/* User Avatar + Dropdown */}
         <div className="relative" ref={userMenuRef}>
           <button
+          data-notification-trigger
             onClick={() => { setShowUserMenu(p => !p); setShowNotifications(false); }}
             className="flex items-center gap-2 hover:bg-gray-50 rounded-xl px-2 py-1 transition-colors">
             <div className="h-9 w-9 bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
@@ -1557,12 +1539,26 @@ useEffect(() => {
               <div className="space-y-4">
                 <h3 className="font-semibold text-gray-800">Live Driver Tracking</h3>
 
-                {!assignedDriver ? (
-                  <div className="text-center py-16 text-gray-400">
-                    <FaTruck className="text-5xl mx-auto mb-3 opacity-20" />
-                    <p className="text-sm font-medium text-gray-500">No active delivery to track</p>
-                    <p className="text-xs text-gray-400 mt-1">Once admin approves and assigns a driver to your request, you'll see their live location here.</p>
-                  </div>
+               {!assignedDriver ? (
+                <div className="text-center py-16 text-gray-400">
+                  <FaTruck className="text-5xl mx-auto mb-3 opacity-20" />
+                  {requests.some(r => r.status === 'pending') ? (
+                    <>
+                      <p className="text-sm font-medium text-gray-500">Your request is pending approval</p>
+                      <p className="text-xs text-gray-400 mt-1">Once admin approves and assigns a driver, tracking will appear here.</p>
+                    </>
+                  ) : requests.some(r => r.status === 'approved' && !r.driver && !r.assignedDriver) ? (
+                    <>
+                      <p className="text-sm font-medium text-yellow-600">✅ Request approved!</p>
+                      <p className="text-xs text-gray-400 mt-1">Waiting for admin to assign a driver. Check back soon.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium text-gray-500">No active delivery to track</p>
+                      <p className="text-xs text-gray-400 mt-1">Once admin approves and assigns a driver to your request, you'll see their live location here.</p>
+                    </>
+                  )}
+                </div>
                 ) : (
                   <>
                     {/* Driver Info Card */}
