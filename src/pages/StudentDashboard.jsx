@@ -1682,14 +1682,14 @@ useEffect(() => {
                       }}
                     className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                     <option value="">Select quantity</option>
-                    <option value="1 Jerrican(30 liters) (Standard)">
+                    <option value="500 Liters (Standard)">
                       1 Jerrican 30 liters (Standard) - ₦{pricing.price500L.toLocaleString()}
                     </option>
-                    <option value="2 Jerrican(60 liters) (Standard)">
+                    <option value="1000 Liters (Large)">
                       2 Jerrican 60 liters (Large) - ₦{pricing.price1000L.toLocaleString()}
                     </option>
-                    <option value="5 Jerrican 150 liters (Extra Large)">
-                      5 Jerrican 150 liters (Extra Large) - ₦{pricing.price1500L.toLocaleString()}
+                    <option value="1500 Liters (Extra Large)">
+                      5 Jerrican 150 liters  (Extra Large) - ₦{pricing.price1500L.toLocaleString()}
                     </option>
                   </select>
                 </div>
