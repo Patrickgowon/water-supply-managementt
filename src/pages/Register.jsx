@@ -76,10 +76,10 @@ const RegisterPage = () => {
   };
 
   const departments = [
-    'Computer Science', 'Information Technology', 'Software Engineering',
-    'Cyber Security', 'Data Science', 'Computer Engineering',
-    'Electrical Engineering', 'Mechanical Engineering', 'Civil Engineering',
-    'Business Administration', 'Accounting', 'Economics'
+    'Computer Science', 'Information Technology', 'micro-biology',
+    'Mathematics', 'Chemistry', 'Physics',
+    'Electrical Engineering', 'Bio-chemistry', 'Agric Science',
+    'Health science', 'Accounting', 'Economics'
   ];
   const levels = ['100', '200', '300', '400', '500'];
   const halls  = [
