@@ -83,8 +83,9 @@ const RegisterPage = () => {
   ];
   const levels = ['100', '200', '300', '400', '500'];
   const halls  = [
-    'Daniel Hall', 'Joseph Hall', 'Mary Hall', 'Peter Hall',
-    'Paul Hall', 'Esther Hall', 'Ruth Hall', 'Samuel Hall'
+    'Assurance', 'GMT', 'Peace Villa', 'Civilian barack',
+    'Swiss Arena', 'De-ballers', 'WhiteHouse', 'Grace Villa',
+    'Anfield', 'Stanford', 'Tsunami', 'Chikam'
   ];
 
   // ── Input handler ────────────────────────────────────────────────────────
