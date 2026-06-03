@@ -2073,7 +2073,7 @@ const resolveIncident = async (driverId, incidentId) => {
                     <div className="overflow-x-auto rounded-xl border border-gray-100">
                       <table className="w-full">
                         <thead className="bg-gray-50">
-                          <tr>{['Order','Student','Amount','Date/Time','Status','Priority','Driver','Actions'].map(h=>(
+                          <tr>{['Order','Student','Phone','Hall / Room','Amount','Date/Time','Status','Priority','Driver','Actions'].map(h=>(
                             <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                           ))}</tr>
                         </thead>
@@ -2082,14 +2082,23 @@ const resolveIncident = async (driverId, incidentId) => {
                             <tr key={o._id} className="hover:bg-gray-50 transition-colors">
                               <td className="px-4 py-3 text-sm font-bold text-gray-700">{o._id?.slice(-6).toUpperCase()}</td>
                               <td className="px-4 py-3">
-                                <p className="text-sm font-semibold text-gray-800">{o.user?.email}</p>
-                                <p className="text-xs text-gray-400 truncate max-w-[200px]">{o.location}</p>
-                              </td>
-                              <td className="px-4 py-3 text-sm font-semibold">{o.amount}L</td>
-                              <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                                {new Date(o.scheduledDate).toLocaleDateString()}<br/>
-                                <span className="text-xs text-gray-400">{o.scheduledTime}</span>
-                              </td>
+                                  <p className="text-sm font-semibold text-gray-800">{o.user?.email}</p>
+                                  <p className="text-xs text-gray-400 truncate max-w-[200px]">{o.location}</p>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700">
+                                  {o.user?.phone || '—'}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <p className="text-sm text-gray-700">{o.user?.hall || '—'}</p>
+                                  <p className="text-xs text-gray-400">Rm {o.user?.roomNumber || '—'}</p>
+                                </td>
+                                <td className="px-4 py-3 text-sm font-semibold">{o.amount}L</td>
+                                <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                                  {o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '—'}<br/>
+                                  <span className="text-xs text-gray-400">
+                                    {o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}
+                                  </span>
+                                </td>
                               <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${sb(o.status)}`}>{o.status}</span></td>
                               <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${PRI_BADGE[o.priority]||'bg-gray-100 text-gray-600'}`}>{o.priority}</span></td>
                               <td className="px-4 py-3 text-sm text-gray-700">
@@ -3433,7 +3442,12 @@ const resolveIncident = async (driverId, incidentId) => {
               </div>
               <div className="grid grid-cols-2 gap-3 mb-5">
                 <div><p className="text-xs text-gray-500">STUDENT</p><p className="text-sm font-semibold text-gray-800">{selOrder.user?.email||selOrder.studentName||'N/A'}</p></div>
+                <div><p className="text-xs text-gray-500">PHONE</p><p className="text-sm text-gray-700">{selOrder.user?.phone||'—'}</p></div>
+                <div><p className="text-xs text-gray-500">HALL</p><p className="text-sm text-gray-700">{selOrder.user?.hall||'—'}</p></div>
+                <div><p className="text-xs text-gray-500">ROOM</p><p className="text-sm text-gray-700">{selOrder.user?.roomNumber||'—'}</p></div>
                 <div><p className="text-xs text-gray-500">LOCATION</p><p className="text-sm text-gray-700">{selOrder.location||'N/A'}</p></div>
+                <div><p className="text-xs text-gray-500">AMOUNT</p><p className="text-sm font-semibold">{selOrder.quantity||selOrder.amount||0}L</p></div>
+                <div><p className="text-xs text-gray-500">DELIVERY DATE</p><p className="text-sm">{selOrder.deliveryDate?new Date(selOrder.deliveryDate).toLocaleDateString():'N/A'} {selOrder.preferredTime||''}</p></div>
                 <div><p className="text-xs text-gray-500">AMOUNT</p><p className="text-sm font-semibold">{selOrder.amount||0}L</p></div>
                 <div><p className="text-xs text-gray-500">SCHEDULED</p><p className="text-sm">{selOrder.scheduledDate?new Date(selOrder.scheduledDate).toLocaleDateString():'N/A'} {selOrder.scheduledTime||''}</p></div>
                 <div><p className="text-xs text-gray-500">PAYMENT</p><p className="text-sm">{selOrder.paymentStatus||'N/A'}</p></div>
