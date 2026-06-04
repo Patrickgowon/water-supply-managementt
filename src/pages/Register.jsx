@@ -543,16 +543,16 @@ const RegisterPage = () => {
               <div className="space-y-3 md:space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   <div className="md:col-span-2">
-                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Hall of Residence</label>
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Area of Residence</label>
                     <div className="relative">
                       <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-gray-400" />
-                      <select value={formData.hall} onChange={e => handleInputChange('hall', e.target.value)}
-                        className={`w-full pl-9 md:pl-10 pr-3 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none ${errors.hall ? 'border-red-300' : 'border-gray-300'}`}>
-                        <option value="">Select Hall</option>
+                     <select value={formData.area} onChange={e => handleInputChange('area', e.target.value)}
+                        className={`w-full pl-9 md:pl-10 pr-3 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none ${errors.area ? 'border-red-300' : 'border-gray-300'}`}>
+                        <option value="">Select Area</option>
                         {halls.map(h => <option key={h} value={h}>{h}</option>)}
                       </select>
                     </div>
-                    {errors.hall && <p className="mt-1 text-xs text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.hall}</p>}
+                    {errors.area && <p className="mt-1 text-xs text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.area}</p>}
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Room Number</label>
