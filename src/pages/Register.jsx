@@ -38,7 +38,7 @@ const RegisterPage = () => {
   const [formData, setFormData] = useState({
     firstName: '', lastName: '', email: '', phone: '',
     matricNumber: '', department: '', level: '',
-    hall: '', roomNumber: '',
+    area: '', roomNumber: '',
     password: '', confirmPassword: '', agreeTerms: false
   });
 
@@ -141,7 +141,7 @@ const RegisterPage = () => {
       if (!formData.level)        newErrors.level      = 'Level is required';
     }
     if (step === 3) {
-      if (!formData.hall)       newErrors.hall       = 'Hall of residence is required';
+      if (!formData.area) newErrors.area = 'Area is required';
       if (!formData.roomNumber) newErrors.roomNumber = 'Room number is required';
     }
     if (step === 4) {
@@ -174,7 +174,7 @@ const RegisterPage = () => {
         matricNumber:    formData.matricNumber,
         department:      formData.department,
         level:           formData.level,
-        hall:            formData.hall,
+        area:            formData.area,
         roomNumber:      formData.roomNumber,
         password:        formData.password,
         confirmPassword: formData.confirmPassword,
