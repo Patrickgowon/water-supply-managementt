@@ -13,6 +13,7 @@ import StaffLogin from "./pages/StaffLogin";
 import AdminLogin from "./pages/AdminLogin";
 import DriverLogin from "./pages/DriverLogin";
 import DriverRegister from "./pages/DriverRegister";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 
 // ── Protected Route — checks token + role ────────────────────────────────────
 const ProtectedRoute = ({ element, allowedRole }) => {
@@ -73,6 +74,7 @@ const App = () => {
         <Route path="/admin-login"  element={<PublicRoute element={<AdminLogin />} />} />
         <Route path="/driver-login" element={<PublicRoute element={<DriverLogin />} />} />
         <Route path="/staff"        element={<PublicRoute element={<StaffLogin />} />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         {/* ── Protected: Student only ── */}
         <Route path="/student-dashboard"
