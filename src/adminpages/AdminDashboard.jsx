@@ -879,7 +879,7 @@ const BroadcastModal = ({ show, onClose, addToast }) => {
 const QuickAssignModal = ({ show, order, drivers, onAssign, onClose }) => {
   const [sel, setSel] = useState('');
   if (!show || !order) return null;
-  const avail = drivers.(d => d.status === 'active' && d.online);
+  const avail = drivers.filter(d => d.status === 'active' && d.online); // ✅ FIXED: added .filter
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9997] p-4">
       <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6">
@@ -1007,7 +1007,7 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-
 
 
 // Add this state near your other useState declarations
-const [showMobileMenu, setShowMobileMenu] = useState(false);
+
 
 const completedOrders = orders
 .filter(o => o.status === 'completed')
