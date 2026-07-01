@@ -1009,9 +1009,7 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-
 // Add this state near your other useState declarations
 
 
-const completedOrders = orders
-.filter(o => o.status === 'completed')
-.sort((a, b) => new Date(b.updatedAt || b.deliveryDate) - new Date(a.updatedAt || a.deliveryDate));
+
 
 
   // Fetch analytics function
@@ -1056,39 +1054,45 @@ const completedOrders = orders
   }, [activeTab, analyticsPeriod, fetchAnalytics]);
 
   // ─── Socket.io — Admin live tracking ────────────────────────────────────────
-    useEffect(() => {
-      socketRef.current = io(SOCKET_URL, {
-        transports: ['websocket'],
-      });
-
-      socketRef.current.on('connect', () => {
-        console.log('🔌 Admin socket connected');
-        socketRef.current.emit('admin:joinTracking');
-      });
-
-      // Listen for driver location updates
-      socketRef.current.on('driver:locationUpdate', (data) => {
-        const { driverId, lat, lng, locationName, timestamp } = data;
-        setLiveDriverLocations(prev => ({
-          ...prev,
-          [driverId]: { lat, lng, locationName, timestamp }
-        }));
-        // Also update drivers array currentLocation
-        setDrivers(prev => prev.map(d =>
-          (d._id || d.id) === driverId
-            ? { ...d, currentLocation: locationName, currentLat: lat, currentLng: lng }
-            : d
-        ));
-      });
-
-      socketRef.current.on('disconnect', () => {
-        console.log('🔌 Admin socket disconnected');
-      });
-
-      return () => {
-        if (socketRef.current) socketRef.current.disconnect();
-      };
-    }, []);
+  useEffect(() => {
+    // ✅ CHANGE: Use polling instead of websocket for Render free tier
+    socketRef.current = io(SOCKET_URL, {
+      transports: ['polling'], // 👈 Changed from ['websocket'] to ['polling']
+    });
+  
+    socketRef.current.on('connect', () => {
+      console.log('🔌 Admin socket connected (polling mode)');
+      socketRef.current.emit('admin:joinTracking');
+    });
+  
+    // Listen for driver location updates
+    socketRef.current.on('driver:locationUpdate', (data) => {
+      const { driverId, lat, lng, locationName, timestamp } = data;
+      setLiveDriverLocations(prev => ({
+        ...prev,
+        [driverId]: { lat, lng, locationName, timestamp }
+      }));
+      // Also update drivers array currentLocation
+      setDrivers(prev => prev.map(d =>
+        (d._id || d.id) === driverId
+          ? { ...d, currentLocation: locationName, currentLat: lat, currentLng: lng }
+          : d
+      ));
+    });
+  
+    socketRef.current.on('disconnect', () => {
+      console.log('🔌 Admin socket disconnected');
+    });
+  
+    // ✅ ADD: Handle connection errors
+    socketRef.current.on('connect_error', (err) => {
+      console.error('Socket connection error:', err.message);
+    });
+  
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect();
+    };
+  }, []);
 
     // ─── WITHDRAWAL FUNCTIONS ──────────────────────────────────────────────────
     const fetchWithdrawals = useCallback(async () => {
