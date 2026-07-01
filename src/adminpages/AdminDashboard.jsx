@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import {
-  FaTint, FaTruck, FaUsers, FaBell, FaClock,
+  FaTint, FaTruck, FaUsers, FaBell, FaClock,FaHistory,
   FaCheckCircle, FaExclamationTriangle,
   FaChartBar, FaCog, FaMoneyBillWave, FaRoute,
   FaClipboardList, FaDownload, FaFilter, FaSearch, FaUserPlus,
@@ -60,6 +60,10 @@ const Toast = ({ toasts, remove }) => (
     ))}
   </div>
 );
+
+const completedOrders = orders
+  .filter(o => o.status === 'completed')
+  .sort((a, b) => new Date(b.updatedAt || b.deliveryDate) - new Date(a.updatedAt || a.deliveryDate));
 
 const useToast = () => {
   const [toasts, setToasts] = useState([]);
@@ -1922,6 +1926,7 @@ const resolveIncident = async (driverId, incidentId) => {
                     { id:'analytics', label:'Analytics',  icon:FaChartLine,       badge:0 },
                     { id:'incidents', label:'Incidents', icon:FaExclamationTriangle, badge: incidents.filter(i => i.status === 'pending').length },
                     { id:'withdrawals', label:'Withdrawals', icon:FaMoneyBillWave, badge: withdrawals.filter(w => w.status === 'pending').length },
+                    { id:'history', label:'Delivery History', icon:FaHistory, badge:0 },
                   ].map(tab => (
                     <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                       className={`px-4 py-3 text-sm font-semibold whitespace-nowrap flex items-center gap-1.5 border-b-2 transition-colors
@@ -3237,7 +3242,91 @@ const resolveIncident = async (driverId, incidentId) => {
                   </div>
                 )}
                 
+                {/* DELIVERY HISTORY TAB */}
+                {activeTab === 'history' && (
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-sm text-gray-800">Delivery History ({completedOrders.length})</h3>
+                      <button onClick={() => {
+                        const csv = completedOrders.map(o =>
+                          `${o._id},${o.user?.email},${o.quantityValue},${o.tanker},${drivers.find(d=>(d._id||d.id)===o.driver)?.firstName||''} ${drivers.find(d=>(d._id||d.id)===o.driver)?.lastName||''},${o.amount},${o.completedAt||o.updatedAt}`
+                        ).join('\n');
+                        const blob = new Blob([csv], {type:'text/csv'});
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a'); a.href=url; a.download='delivery-history.csv'; a.click();
+                        URL.revokeObjectURL(url);
+                        addToast('success','Delivery history exported');
+                      }} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-xl text-xs font-semibold hover:bg-green-100">
+                        <FaDownload size={11} /> Export CSV
+                      </button>
+                    </div>
 
+                    <div className="overflow-x-auto rounded-xl border border-gray-100">
+                      <table className="w-full">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {['Order','Student','Phone','Hall/Room','Amount','Tanker','Driver','Completed','Payment','Amount Paid'].map(h => (
+                              <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {completedOrders.map(o => {
+                            const driver = drivers.find(d => (d._id || d.id) === (o.driver?._id || o.driver));
+                            return (
+                              <tr key={o._id} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-4 py-3 text-sm font-bold text-gray-700">{o._id?.slice(-6).toUpperCase()}</td>
+
+                                <td className="px-4 py-3">
+                                  <p className="text-sm font-semibold text-gray-800">{o.user?.email}</p>
+                                  <p className="text-xs text-gray-400 truncate max-w-[180px]">{o.location}</p>
+                                </td>
+
+                                <td className="px-4 py-3 text-sm text-gray-700">{o.user?.phone || '—'}</td>
+
+                                <td className="px-4 py-3">
+                                  <p className="text-sm text-gray-700">{o.user?.hall || '—'}</p>
+                                  <p className="text-xs text-gray-400">Rm {o.user?.roomNumber || '—'}</p>
+                                </td>
+
+                                {/* ✅ liters, not price */}
+                                <td className="px-4 py-3 text-sm font-semibold">{o.quantityValue}L</td>
+
+                                <td className="px-4 py-3 text-sm text-gray-700">{o.tanker || '—'}</td>
+
+                                <td className="px-4 py-3 text-sm text-gray-700">
+                                  {driver ? `${driver.firstName} ${driver.lastName}` : '—'}
+                                </td>
+
+                                {/* ✅ uses completedAt, falls back to updatedAt */}
+                                <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                                  {o.completedAt ? new Date(o.completedAt).toLocaleDateString() : (o.updatedAt ? new Date(o.updatedAt).toLocaleDateString() : '—')}<br/>
+                                  <span className="text-xs text-gray-400">
+                                    {o.completedAt ? new Date(o.completedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}
+                                  </span>
+                                </td>
+
+                                <td className="px-4 py-3">
+                                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                    o.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {o.paymentStatus || 'unpaid'}
+                                  </span>
+                                </td>
+
+                                {/* ✅ uses o.amount (the real ₦ field in your schema) */}
+                                <td className="px-4 py-3 text-sm font-bold text-green-600">₦{(o.amount || 0).toLocaleString()}</td>
+                              </tr>
+                            );
+                          })}
+                          {completedOrders.length === 0 && (
+                            <tr><td colSpan="9" className="px-4 py-8 text-center text-gray-500">No completed deliveries yet</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
                 
               </div>
             </div>
