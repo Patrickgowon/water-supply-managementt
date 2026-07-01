@@ -61,9 +61,6 @@ const Toast = ({ toasts, remove }) => (
   </div>
 );
 
-const completedOrders = orders
-  .filter(o => o.status === 'completed')
-  .sort((a, b) => new Date(b.updatedAt || b.deliveryDate) - new Date(a.updatedAt || a.deliveryDate));
 
 const useToast = () => {
   const [toasts, setToasts] = useState([]);
@@ -882,7 +879,7 @@ const BroadcastModal = ({ show, onClose, addToast }) => {
 const QuickAssignModal = ({ show, order, drivers, onAssign, onClose }) => {
   const [sel, setSel] = useState('');
   if (!show || !order) return null;
-  const avail = drivers.filter(d => d.status === 'active' && d.online);
+  const avail = drivers.(d => d.status === 'active' && d.online);
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9997] p-4">
       <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6">
@@ -964,6 +961,7 @@ const AdminDashboard = () => {
   const [showRoutes, setShowRoutes]   = useState(false);
   const [mapLayer, setMapLayer]       = useState('streets');
   const [selDriverMap, setSelDriverMap] = useState(null);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   // Analytics state
   const [analytics, setAnalytics]         = useState(null);
@@ -1011,7 +1009,10 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-
 // Add this state near your other useState declarations
 const [showMobileMenu, setShowMobileMenu] = useState(false);
 
-  
+const completedOrders = orders
+.filter(o => o.status === 'completed')
+.sort((a, b) => new Date(b.updatedAt || b.deliveryDate) - new Date(a.updatedAt || a.deliveryDate));
+
 
   // Fetch analytics function
   const fetchAnalytics = useCallback(async (period = 'month') => {
@@ -1160,6 +1161,7 @@ const [showMobileMenu, setShowMobileMenu] = useState(false);
       if (ordersRes.data.success) {
         const data = ordersRes.data.data;
         setOrders(data);
+        
         const pending   = data.filter(o => o.status === 'pending');
         const completed = data.filter(o => o.status === 'completed');
         const totalRevenue = data.filter(o => o.paymentStatus === 'paid').reduce((s, o) => s + (o.amountPaid || 0), 0);
@@ -1167,6 +1169,7 @@ const [showMobileMenu, setShowMobileMenu] = useState(false);
         setStats(prev => ({ ...prev, totalOrders: data.length, pendingOrders: pending.length, completedOrders: completed.length, totalRevenue, totalWater }));
       }
 
+      
       if (driversRes.data.success) {
         const data = driversRes.data.data;
         setDrivers(data);
@@ -3246,7 +3249,7 @@ const resolveIncident = async (driverId, incidentId) => {
                 {activeTab === 'history' && (
                   <div>
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-sm text-gray-800">Delivery History ({completedOrders.length})</h3>
+                      <h3 className="font-bold text-sm text-gray-800">Delivery History ({orders.filter(o => o.status === 'completed').length})</h3>
                       <button onClick={() => {
                         const csv = completedOrders.map(o =>
                           `${o._id},${o.user?.email},${o.quantityValue},${o.tanker},${drivers.find(d=>(d._id||d.id)===o.driver)?.firstName||''} ${drivers.find(d=>(d._id||d.id)===o.driver)?.lastName||''},${o.amount},${o.completedAt||o.updatedAt}`
@@ -3271,55 +3274,56 @@ const resolveIncident = async (driverId, incidentId) => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {completedOrders.map(o => {
-                            const driver = drivers.find(d => (d._id || d.id) === (o.driver?._id || o.driver));
-                            return (
-                              <tr key={o._id} className="hover:bg-gray-50 transition-colors">
-                                <td className="px-4 py-3 text-sm font-bold text-gray-700">{o._id?.slice(-6).toUpperCase()}</td>
+                        {orders
+                            .filter(o => o.status === 'completed')
+                            .sort((a, b) => new Date(b.updatedAt || b.deliveryDate) - new Date(a.updatedAt || a.deliveryDate))
+                            .map(o => {
+                              const driver = drivers.find(d => (d._id || d.id) === (o.driver?._id || o.driver));
+                              return (
+                                <tr key={o._id} className="hover:bg-gray-50 transition-colors">
+                                  <td className="px-4 py-3 text-sm font-bold text-gray-700">{o._id?.slice(-6).toUpperCase()}</td>
 
-                                <td className="px-4 py-3">
-                                  <p className="text-sm font-semibold text-gray-800">{o.user?.email}</p>
-                                  <p className="text-xs text-gray-400 truncate max-w-[180px]">{o.location}</p>
-                                </td>
+                                  <td className="px-4 py-3">
+                                    <p className="text-sm font-semibold text-gray-800">{o.user?.email}</p>
+                                    <p className="text-xs text-gray-400 truncate max-w-[180px]">{o.location}</p>
+                                  </td>
 
-                                <td className="px-4 py-3 text-sm text-gray-700">{o.user?.phone || '—'}</td>
+                                  <td className="px-4 py-3 text-sm text-gray-700">{o.user?.phone || '—'}</td>
 
-                                <td className="px-4 py-3">
-                                  <p className="text-sm text-gray-700">{o.user?.hall || '—'}</p>
-                                  <p className="text-xs text-gray-400">Rm {o.user?.roomNumber || '—'}</p>
-                                </td>
+                                  <td className="px-4 py-3">
+                                    <p className="text-sm text-gray-700">{o.user?.hall || '—'}</p>
+                                    <p className="text-xs text-gray-400">Rm {o.user?.roomNumber || '—'}</p>
+                                  </td>
 
-                                {/* ✅ liters, not price */}
-                                <td className="px-4 py-3 text-sm font-semibold">{o.quantityValue}L</td>
+                                  <td className="px-4 py-3 text-sm font-semibold">{o.quantityValue}L</td>
 
-                                <td className="px-4 py-3 text-sm text-gray-700">{o.tanker || '—'}</td>
+                                  <td className="px-4 py-3 text-sm text-gray-700">{o.tanker || '—'}</td>
 
-                                <td className="px-4 py-3 text-sm text-gray-700">
-                                  {driver ? `${driver.firstName} ${driver.lastName}` : '—'}
-                                </td>
+                                  <td className="px-4 py-3 text-sm text-gray-700">
+                                    {driver ? `${driver.firstName} ${driver.lastName}` : '—'}
+                                  </td>
 
-                                {/* ✅ uses completedAt, falls back to updatedAt */}
-                                <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                                  {o.completedAt ? new Date(o.completedAt).toLocaleDateString() : (o.updatedAt ? new Date(o.updatedAt).toLocaleDateString() : '—')}<br/>
-                                  <span className="text-xs text-gray-400">
-                                    {o.completedAt ? new Date(o.completedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}
-                                  </span>
-                                </td>
+                                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                                    {o.completedAt ? new Date(o.completedAt).toLocaleDateString() : (o.updatedAt ? new Date(o.updatedAt).toLocaleDateString() : '—')}<br/>
+                                    <span className="text-xs text-gray-400">
+                                      {o.completedAt ? new Date(o.completedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}
+                                    </span>
+                                  </td>
 
-                                <td className="px-4 py-3">
-                                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                    o.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                  }`}>
-                                    {o.paymentStatus || 'unpaid'}
-                                  </span>
-                                </td>
+                                  <td className="px-4 py-3">
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                      o.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                    }`}>
+                                      {o.paymentStatus || 'unpaid'}
+                                    </span>
+                                  </td>
 
-                                {/* ✅ uses o.amount (the real ₦ field in your schema) */}
-                                <td className="px-4 py-3 text-sm font-bold text-green-600">₦{(o.amount || 0).toLocaleString()}</td>
-                              </tr>
-                            );
-                          })}
-                          {completedOrders.length === 0 && (
+                                  <td className="px-4 py-3 text-sm font-bold text-green-600">₦{(o.amount || 0).toLocaleString()}</td>
+                                </tr>
+                              );
+                            })}
+
+                          {orders.filter(o => o.status === 'completed').length === 0 && (
                             <tr><td colSpan="9" className="px-4 py-8 text-center text-gray-500">No completed deliveries yet</td></tr>
                           )}
                         </tbody>
