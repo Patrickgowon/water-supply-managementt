@@ -823,52 +823,6 @@ useEffect(() => {
   return () => socket.disconnect();
 }, []);
 
-// ─── Socket: connect driver ────────────────────────────────────────────────
-useEffect(() => {
-  const token = localStorage.getItem('token');
-  if (!token) return;
-
-  // Decode driver ID directly from JWT token
-  let driverId = null;
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    driverId = payload.id;
-    console.log('🔑 Driver ID from token:', driverId);
-  } catch (e) {
-    console.error('❌ Failed to decode token:', e);
-    return;
-  }
-
-  if (!driverId) return;
-
-  const socket = io(SOCKET_URL, {
-    transports:            ['websocket', 'polling'],
-    reconnection:          true,
-    reconnectionAttempts:  10,
-    reconnectionDelay:     1000,
-    timeout:               20000,
-  });
-  socketRef.current = socket;
-
-  socket.on('connect', () => {
-    console.log('✅ Driver socket connected:', socket.id);
-    socket.emit('driver:join', driverId);
-  });
-
-  socket.on('disconnect', (reason) => {
-    console.log('🔌 Driver socket disconnected:', reason);
-  });
-
-  socket.on('connect_error', (err) => {
-    console.error('❌ Driver socket error:', err.message);
-  });
-
-  return () => {
-    console.log('🔌 Driver socket cleanup');
-    socket.disconnect();
-  };
-}, []); // ← runs once on mount
-
   
   
 
