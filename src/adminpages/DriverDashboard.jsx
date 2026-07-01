@@ -774,11 +774,14 @@ const DriverDashboard = () => {
     }
   };
 
-  useEffect(() => { fetchDriverData(); }, []);
 
-  useEffect(() => { fetchDriverData(); }, []);
+
+
 
 // ─── Socket connection ─────────────────────────────────────────────────────
+useEffect(() => { fetchDriverData(); }, []);
+
+// ─── Socket: Driver connection ─────────────────────────────────────────────
 useEffect(() => {
   const token = localStorage.getItem('token');
   if (!token) return;
