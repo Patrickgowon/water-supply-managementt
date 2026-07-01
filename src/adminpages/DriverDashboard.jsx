@@ -776,6 +776,52 @@ const DriverDashboard = () => {
 
   useEffect(() => { fetchDriverData(); }, []);
 
+// ─── Socket: connect driver ────────────────────────────────────────────────
+useEffect(() => {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  // Decode driver ID directly from JWT token
+  let driverId = null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    driverId = payload.id;
+    console.log('🔑 Driver ID from token:', driverId);
+  } catch (e) {
+    console.error('❌ Failed to decode token:', e);
+    return;
+  }
+
+  if (!driverId) return;
+
+  const socket = io(SOCKET_URL, {
+    transports:            ['websocket', 'polling'],
+    reconnection:          true,
+    reconnectionAttempts:  10,
+    reconnectionDelay:     1000,
+    timeout:               20000,
+  });
+  socketRef.current = socket;
+
+  socket.on('connect', () => {
+    console.log('✅ Driver socket connected:', socket.id);
+    socket.emit('driver:join', driverId);
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('🔌 Driver socket disconnected:', reason);
+  });
+
+  socket.on('connect_error', (err) => {
+    console.error('❌ Driver socket error:', err.message);
+  });
+
+  return () => {
+    console.log('🔌 Driver socket cleanup');
+    socket.disconnect();
+  };
+}, []); // ← runs once on mount
+
   
   
 
@@ -813,17 +859,28 @@ const DriverDashboard = () => {
             });
   
             // 2️⃣ Emit via socket so students receive it in real time
-            if (socketRef.current?.connected) {
-              socketRef.current.emit('driver:location', {
-                driverId:     user._id,
-                lat,
-                lng,
-                locationName: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-              });
-              console.log('📡 Location emitted via socket:', lat, lng);
-            } else {
-              console.warn('⚠️ Socket not connected, location not emitted');
+            // 2️⃣ Emit via socket so students receive it in real time
+          if (socketRef.current?.connected) {
+            // Get driverId from token, not from localStorage user
+            let driverId = null;
+            try {
+              const payload = JSON.parse(atob(token.split('.')[1]));
+              driverId = payload.id;
+            } catch (e) {
+              console.error('❌ Token decode failed in location emit');
+              return;
             }
+
+            socketRef.current.emit('driver:location', {
+              driverId,
+              lat,
+              lng,
+              locationName: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+            });
+            console.log('📡 Location emitted via socket:', lat, lng, '| driverId:', driverId);
+          } else {
+            console.warn('⚠️ Socket not connected when trying to emit location');
+          }
   
             setCurrentLocation({ lat, lng, name: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
           } catch (err) {
