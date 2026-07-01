@@ -905,7 +905,8 @@ useEffect(() => {
             
             // 2️⃣ Emit via socket so students receive it in real time
           // Get driverId from token
-          let driverId = null;;
+          let driverId = null;
+
           try {
             const payload = JSON.parse(atob(token.split('.')[1]));
             driverId = payload.id;
