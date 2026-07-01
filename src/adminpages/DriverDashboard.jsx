@@ -797,38 +797,42 @@ const DriverDashboard = () => {
     if (!isOnline) return;
   
     const updateLocation = () => {
-      if (!("geolocation" in navigator)) return;
+      if (!('geolocation' in navigator)) return;
   
-      navigator.geolocation.getCurrentPosition(async (position) => {
-        const { latitude: lat, longitude: lng } = position.coords;
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude: lat, longitude: lng } = position.coords;
+          const user = JSON.parse(localStorage.getItem('user') || '{}');
   
-        try {
-          const token = localStorage.getItem('token');
+          try {
+            const token = localStorage.getItem('token');
   
-          // 1️⃣ Save to DB via REST (keep this)
-          await axios.put(`${API_URL}/driver/location`, { lat, lng }, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-  
-          // 2️⃣ Broadcast via socket (this is what students receive)
-          if (socketRef.current?.connected) {
-            socketRef.current.emit('driver:location', {
-              driverId:     user._id,
-              lat,
-              lng,
-              locationName: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+            // 1️⃣ Save to DB via REST
+            await axios.put(`${API_URL}/driver/location`, { lat, lng }, {
+              headers: { Authorization: `Bearer ${token}` }
             });
-            console.log(`📡 Location emitted via socket: ${lat}, ${lng}`);
-          }
   
-          setCurrentLocation({ lat, lng, name: `${lat.toFixed(4)}, ${lng.toFixed(4)}` });
-        } catch (err) {
-          console.error('Error updating location:', err);
-        }
-      }, (err) => {
-        console.error('Geolocation error:', err.message);
-      });
+            // 2️⃣ Emit via socket so students receive it in real time
+            if (socketRef.current?.connected) {
+              socketRef.current.emit('driver:location', {
+                driverId:     user._id,
+                lat,
+                lng,
+                locationName: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+              });
+              console.log('📡 Location emitted via socket:', lat, lng);
+            } else {
+              console.warn('⚠️ Socket not connected, location not emitted');
+            }
+  
+            setCurrentLocation({ lat, lng, name: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
+          } catch (err) {
+            console.error('Error updating location:', err);
+          }
+        },
+        (err) => console.error('Geolocation error:', err.message),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
     };
   
     updateLocation();

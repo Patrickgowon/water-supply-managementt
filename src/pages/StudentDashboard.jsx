@@ -378,6 +378,13 @@ const StudentDashboard = () => {
       });
     }
   }, [user]);
+  // Add this useEffect once in StudentDashboard
+useEffect(() => {
+  const keepAlive = setInterval(() => {
+    axios.get(`${API_URL.replace('/api', '')}/api/health`).catch(() => {});
+  }, 4 * 60 * 1000); // ping every 4 minutes
+  return () => clearInterval(keepAlive);
+}, []);
 
   
 // ─── Socket.io — Track assigned driver ───────────────────────────────────────
@@ -419,9 +426,12 @@ useEffect(() => {
   });
 
   const socket = io(SOCKET_URL, {
-    transports: ['websocket', 'polling'],
-    reconnection: true,
-    reconnectionDelay: 2000,
+    transports:          ['websocket', 'polling'],
+    reconnection:        true,
+    reconnectionAttempts: 10,
+    reconnectionDelay:   1000,
+    timeout:             20000,         // ← give Render more time to wake up
+    forceNew:            true,
   });
   socketRef.current = socket;
 
