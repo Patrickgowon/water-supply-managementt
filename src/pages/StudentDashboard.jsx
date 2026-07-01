@@ -379,10 +379,9 @@ const StudentDashboard = () => {
     }
   }, [user]);
 
-  // ─── Socket.io — Track assigned driver ───────────────────────────────────────
+  
 // ─── Socket.io — Track assigned driver ───────────────────────────────────────
 useEffect(() => {
-  // Disconnect any previous socket first
   if (socketRef.current) {
     socketRef.current.disconnect();
     socketRef.current = null;
@@ -392,6 +391,9 @@ useEffect(() => {
     ['approved', 'in-progress', 'assigned', 'scheduled'].includes(r.status) &&
     (r.driver || r.assignedDriver)
   );
+
+  console.log('🔍 Active request found:', activeRequest);
+  console.log('🔍 All requests:', requests.map(r => ({ id: r._id, status: r.status, driver: r.driver, assignedDriver: r.assignedDriver })));
 
   if (!activeRequest) {
     setAssignedDriver(null);
@@ -403,39 +405,42 @@ useEffect(() => {
     ? activeRequest.driver?._id
     : activeRequest.driver || activeRequest.assignedDriver;
 
+  console.log('🔍 Driver ID extracted:', driverId);
+
   if (!driverId) return;
 
-  // Set driver info
   setAssignedDriver({
     driverId,
     name: typeof activeRequest.driver === 'object'
       ? `${activeRequest.driver.firstName || ''} ${activeRequest.driver.lastName || ''}`.trim() || 'Your Driver'
       : activeRequest.driverName || 'Your Driver',
-    tanker:    activeRequest.tanker     || activeRequest.driverTanker || '',
+    tanker:    activeRequest.tanker || '',
     requestId: activeRequest._id,
   });
 
-  // Connect socket
   const socket = io(SOCKET_URL, {
-    transports:       ['websocket', 'polling'], // ← fallback to polling if websocket fails
-    reconnection:     true,
+    transports: ['websocket', 'polling'],
+    reconnection: true,
     reconnectionDelay: 2000,
   });
   socketRef.current = socket;
 
   socket.on('connect', () => {
-    console.log('🔌 Student socket connected:', socket.id);
+    console.log('✅ Student socket connected:', socket.id);
+    console.log('📡 Emitting student:trackDriver for driverId:', driverId);
     socket.emit('student:trackDriver', driverId);
   });
 
   socket.on('connect_error', (err) => {
-    console.error('❌ Socket connection error:', err.message);
+    console.error('❌ Socket connect error:', err.message);
   });
 
-  // ✅ matches server: io.to(`tracking:${driverId}`).emit('driver:locationUpdate', ...)
   socket.on('driver:locationUpdate', (data) => {
-    console.log('📍 Location update received:', data);
-    if (String(data.driverId) !== String(driverId)) return;
+    console.log('📍 RAW location data received:', data);
+    if (String(data.driverId) !== String(driverId)) {
+      console.warn('⚠️ driverId mismatch — data.driverId:', data.driverId, '| expected:', driverId);
+      return;
+    }
     setDriverLocation({
       lat:          parseFloat(data.lat),
       lng:          parseFloat(data.lng),
@@ -445,7 +450,6 @@ useEffect(() => {
   });
 
   return () => {
-    console.log('🔌 Student socket disconnecting');
     socket.emit('student:stopTracking', driverId);
     socket.disconnect();
     socketRef.current = null;
