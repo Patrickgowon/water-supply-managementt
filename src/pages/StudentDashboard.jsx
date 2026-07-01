@@ -1,5 +1,6 @@
 // src/pages/StudentDashboard.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import {
   FaTint, FaTruck, FaBell, FaUserCircle, FaClock,
@@ -21,7 +22,7 @@ import {
 import axios from 'axios';
 
 import { io } from 'socket.io-client';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -33,6 +34,17 @@ L.Icon.Default.mergeOptions({
 });
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
+
+// ─── Auto-pan map when driver moves ──────────────────────────────────────────
+
+
+const MapUpdater = ({ position }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (position) map.setView(position, map.getZoom());
+  }, [position]);
+  return null;
+};
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://plasu-hydrotrack-backend.onrender.com/api';
 const PAYSTACK_PUBLIC_KEY = 'pk_test_bed221a6bf478e70a90fe3238af9d4162bfa99e5';
@@ -244,6 +256,8 @@ const SettingsModal = ({ show, onClose, notifSettings, setNotifSettings, onSave 
 };
 
 // ─── MAIN DASHBOARD ───────────────────────────────────────────────────────────
+
+
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const { toasts, addToast, removeToast } = useToast();
@@ -366,56 +380,75 @@ const StudentDashboard = () => {
   }, [user]);
 
   // ─── Socket.io — Track assigned driver ───────────────────────────────────────
+// ─── Socket.io — Track assigned driver ───────────────────────────────────────
 useEffect(() => {
-  // Find active/approved request with assigned driver
-  const activeRequest = requests.find(r =>
-  (r.status === 'approved' || r.status === 'in-progress' || 
-   r.status === 'assigned' || r.status === 'scheduled') && 
-  (r.driver || r.assignedDriver)
-);
+  // Disconnect any previous socket first
+  if (socketRef.current) {
+    socketRef.current.disconnect();
+    socketRef.current = null;
+  }
 
-  if (!activeRequest) return;
+  const activeRequest = requests.find(r =>
+    ['approved', 'in-progress', 'assigned', 'scheduled'].includes(r.status) &&
+    (r.driver || r.assignedDriver)
+  );
+
+  if (!activeRequest) {
+    setAssignedDriver(null);
+    setDriverLocation(null);
+    return;
+  }
 
   const driverId = typeof activeRequest.driver === 'object'
-  ? activeRequest.driver._id
-  : activeRequest.driver || activeRequest.assignedDriver;
+    ? activeRequest.driver?._id
+    : activeRequest.driver || activeRequest.assignedDriver;
 
   if (!driverId) return;
 
-  // Save assigned driver info
+  // Set driver info
   setAssignedDriver({
     driverId,
     name: typeof activeRequest.driver === 'object'
-      ? `${activeRequest.driver.firstName || ''} ${activeRequest.driver.lastName || ''}`.trim()
-      : 'Your Driver',
-    tanker: activeRequest.tanker || '',
+      ? `${activeRequest.driver.firstName || ''} ${activeRequest.driver.lastName || ''}`.trim() || 'Your Driver'
+      : activeRequest.driverName || 'Your Driver',
+    tanker:    activeRequest.tanker     || activeRequest.driverTanker || '',
     requestId: activeRequest._id,
   });
 
-  // Connect socket and track driver
-  socketRef.current = io(SOCKET_URL, { transports: ['websocket'] });
+  // Connect socket
+  const socket = io(SOCKET_URL, {
+    transports:       ['websocket', 'polling'], // ← fallback to polling if websocket fails
+    reconnection:     true,
+    reconnectionDelay: 2000,
+  });
+  socketRef.current = socket;
 
-  socketRef.current.on('connect', () => {
-    console.log('🔌 Student socket connected');
-    socketRef.current.emit('student:trackDriver', driverId);
+  socket.on('connect', () => {
+    console.log('🔌 Student socket connected:', socket.id);
+    socket.emit('student:trackDriver', driverId);
   });
 
-  socketRef.current.on('driver:locationUpdate', (data) => {
-    if (data.driverId === driverId) {
-      setDriverLocation({
-        lat:          data.lat,
-        lng:          data.lng,
-        locationName: data.locationName,
-        timestamp:    data.timestamp,
-      });
-    }
+  socket.on('connect_error', (err) => {
+    console.error('❌ Socket connection error:', err.message);
+  });
+
+  // ✅ matches server: io.to(`tracking:${driverId}`).emit('driver:locationUpdate', ...)
+  socket.on('driver:locationUpdate', (data) => {
+    console.log('📍 Location update received:', data);
+    if (String(data.driverId) !== String(driverId)) return;
+    setDriverLocation({
+      lat:          parseFloat(data.lat),
+      lng:          parseFloat(data.lng),
+      locationName: data.locationName || `${data.lat}, ${data.lng}`,
+      timestamp:    data.timestamp || new Date(),
+    });
   });
 
   return () => {
-    if (socketRef.current) {
-      socketRef.current.emit('student:stopTracking', driverId);
-      socketRef.current.disconnect();
-    }
+    console.log('🔌 Student socket disconnecting');
+    socket.emit('student:stopTracking', driverId);
+    socket.disconnect();
+    socketRef.current = null;
   };
 }, [requests]);
 
@@ -1597,6 +1630,11 @@ useEffect(() => {
                           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                           attribution='&copy; OpenStreetMap'
                         />
+
+                        {driverLocation && (
+                            <MapUpdater position={[driverLocation.lat, driverLocation.lng]} />
+                          )}
+
                         {driverLocation && (
                           <Marker
                             position={[driverLocation.lat, driverLocation.lng]}

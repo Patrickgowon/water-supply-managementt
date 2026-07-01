@@ -795,19 +795,42 @@ const DriverDashboard = () => {
 
   useEffect(() => {
     if (!isOnline) return;
-    const updateLocation = async () => {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(async (position) => {
-          try {
-            const token = localStorage.getItem('token');
-            await axios.put(`${API_URL}/driver/location`, {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
-            }, { headers: { Authorization: `Bearer ${token}` } });
-          } catch (err) { console.error('Error updating location:', err); }
-        });
-      }
+  
+    const updateLocation = () => {
+      if (!("geolocation" in navigator)) return;
+  
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude: lat, longitude: lng } = position.coords;
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+  
+        try {
+          const token = localStorage.getItem('token');
+  
+          // 1️⃣ Save to DB via REST (keep this)
+          await axios.put(`${API_URL}/driver/location`, { lat, lng }, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+  
+          // 2️⃣ Broadcast via socket (this is what students receive)
+          if (socketRef.current?.connected) {
+            socketRef.current.emit('driver:location', {
+              driverId:     user._id,
+              lat,
+              lng,
+              locationName: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+            });
+            console.log(`📡 Location emitted via socket: ${lat}, ${lng}`);
+          }
+  
+          setCurrentLocation({ lat, lng, name: `${lat.toFixed(4)}, ${lng.toFixed(4)}` });
+        } catch (err) {
+          console.error('Error updating location:', err);
+        }
+      }, (err) => {
+        console.error('Geolocation error:', err.message);
+      });
     };
+  
     updateLocation();
     const interval = setInterval(updateLocation, 30000);
     return () => clearInterval(interval);
