@@ -799,7 +799,7 @@ useEffect(() => {
   if (!driverId) return;
 
   const socket = io(SOCKET_URL, {
-    transports:           [ 'polling'],
+    transports:           ['websocket','polling'],
     reconnection:         true,
     reconnectionAttempts: 10,
     reconnectionDelay:    1000,
@@ -1243,10 +1243,15 @@ useEffect(() => {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 shrink-0">
-                <button onClick={() => window.open(`tel:${activeDelivery.phone}`)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-xl text-xs font-semibold hover:bg-blue-100 border border-blue-100 transition-colors">
+              {activeDelivery.phone && activeDelivery.phone !== 'N/A' && (
+                <a
+                  href={`tel:${activeDelivery.phone}`}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-xl text-xs font-semibold hover:bg-blue-100 border border-blue-100 transition-colors"
+                  title="Call student"
+                >
                   <FaPhone size={11} /> Call
-                </button>
+                </a>
+              )}
                 <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${activeDelivery.lat},${activeDelivery.lng}`)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-semibold hover:bg-indigo-100 border border-indigo-100 transition-colors">
                   <MdDirections size={14} /> Navigate
@@ -1384,11 +1389,14 @@ useEffect(() => {
                              d.status.charAt(0).toUpperCase() + d.status.slice(1)}
                           </span>
                           
-                          {(d.status === 'pending' || d.status === 'approved' || d.status === 'in-progress') && (
-                            <button onClick={() => window.open(`tel:${d.phone}`)}
-                              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                          {(d.status === 'pending' || d.status === 'approved' || d.status === 'in-progress') && d.phone && d.phone !== 'N/A' && (
+                            <a
+                              href={`tel:${d.phone}`}
+                              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors inline-flex items-center justify-center"
+                              title="Call student"
+                            >
                               <FaPhone size={11} />
-                            </button>
+                            </a>
                           )}
                           
                           {(d.status === 'pending' || d.status === 'approved') && (

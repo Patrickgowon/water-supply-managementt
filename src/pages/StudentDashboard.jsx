@@ -426,7 +426,7 @@ useEffect(() => {
   });
 
   const socket = io(SOCKET_URL, {
-    transports:          [ 'polling'],
+    transports:          ['websocket', 'polling'],
     reconnection:        true,
     reconnectionAttempts: 10,
     reconnectionDelay:   1000,
@@ -458,7 +458,7 @@ useEffect(() => {
       timestamp:    data.timestamp || new Date(),
     });
   });
-
+console.log('the driver location',driverLocation)
   return () => {
     socket.emit('student:stopTracking', driverId);
     socket.disconnect();

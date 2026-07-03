@@ -47,7 +47,7 @@ const DriverRegisterPage = () => {
 
   const [formData, setFormData] = useState({
     // Step 1 – Personal
-    firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '', address: '',
+    firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '', address: '', location: '',
     // Step 2 – Vehicle
     tankerId: '', vehicleType: '', vehiclePlate: '', vehicleCapacity: '', vehicleYear: '',
     // Step 3 – License & Experience
@@ -61,9 +61,16 @@ const DriverRegisterPage = () => {
     hasLength: false, hasNumber: false, hasUpper: false, hasLower: false, hasSpecial: false,
   });
 
-  const vehicleTypes   = ['5,000L Tanker', '8,000L Tanker', '10,000L Tanker', '15,000L Tanker', '20,000L Tanker'];
-  const capacityOptions= ['5000', '8000', '10000', '15000', '20000'];
-  const expOptions     = ['< 1 year', '1–2 years', '3–5 years', '5–10 years', '10+ years'];
+  const vehicleTypes    = ['5,000L Tanker', '8,000L Tanker', '10,000L Tanker', '15,000L Tanker', '20,000L Tanker'];
+  const capacityOptions = ['5000', '8000', '10000', '15000', '20000'];
+  const expOptions      = ['< 1 year', '1–2 years', '3–5 years', '5–10 years', '10+ years'];
+  const locationOptions = ['Ndar', 'Across'];
+
+  // Reference coordinates for each location option (used to store lat/lng in the DB)
+  const locationCoordinates = {
+    Ndar:   { latitude: 9.3765317, longitude: 8.9626033 },
+    Across: { latitude: 9.3754143, longitude: 8.9626594 },
+  };
 
   // ── OTP Timer ────────────────────────────────────────────────────────────────
   const startResendTimer = () => {
@@ -123,6 +130,7 @@ const DriverRegisterPage = () => {
       else if (!/^[0-9]{11}$/.test(formData.phone))  e.phone = 'Must be 11 digits';
       if (!formData.dateOfBirth) e.dateOfBirth = 'Date of birth is required';
       if (!formData.address)     e.address    = 'Address is required';
+      if (!formData.location)    e.location   = 'Please select your location';
     }
     if (step === 2) {
       if (!formData.tankerId)        e.tankerId        = 'Tanker ID is required';
@@ -168,6 +176,9 @@ const DriverRegisterPage = () => {
         phone:            formData.phone,
         dateOfBirth:      formData.dateOfBirth,
         address:          formData.address,
+        location:         formData.location,
+        latitude:         locationCoordinates[formData.location]?.latitude,
+        longitude:        locationCoordinates[formData.location]?.longitude,
         tankerId:         formData.tankerId,
         vehicleType:      formData.vehicleType,
         vehiclePlate:     formData.vehiclePlate,
@@ -520,6 +531,21 @@ const DriverRegisterPage = () => {
                         className={`w-full pl-9 md:pl-10 pr-3 md:pr-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none ${errors.address ? 'border-red-300 bg-red-50' : 'border-gray-300'}`} />
                     </div>
                     <ErrMsg field="address" />
+                  </div>
+
+                  {/* Location */}
+                  <div className="md:col-span-2">
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Location</label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-gray-400" />
+                      <select value={formData.location}
+                        onChange={e => handleInputChange('location', e.target.value)}
+                        className={selectCls('location')}>
+                        <option value="">Select Location</option>
+                        {locationOptions.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                      </select>
+                    </div>
+                    <ErrMsg field="location" />
                   </div>
                 </div>
               </div>

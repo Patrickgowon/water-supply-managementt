@@ -2101,7 +2101,7 @@ const resolveIncident = async (driverId, incidentId) => {
                                   {o.user?.phone || '—'}
                                 </td>
                                 <td className="px-4 py-3">
-                                  <p className="text-sm text-gray-700">{o.user?.hall || '—'}</p>
+                                <p className="text-sm text-gray-700">{o.user?.area || '—'}</p>
                                   <p className="text-xs text-gray-400">Rm {o.user?.roomNumber || '—'}</p>
                                 </td>
                                 <td className="px-4 py-3 text-sm font-semibold">{o.amount}L</td>
@@ -3298,7 +3298,7 @@ const resolveIncident = async (driverId, incidentId) => {
                                     <td className="px-4 py-3 text-sm text-gray-700">{o.user?.phone || '—'}</td>
 
                                     <td className="px-4 py-3">
-                                      <p className="text-sm text-gray-700">{o.user?.hall || '—'}</p>
+                                    <p className="text-sm text-gray-700">{o.user?.area || '—'}</p>
                                       <p className="text-xs text-gray-400">Rm {o.user?.roomNumber || '—'}</p>
                                     </td>
 
@@ -3543,7 +3543,7 @@ const resolveIncident = async (driverId, incidentId) => {
               <div className="grid grid-cols-2 gap-3 mb-5">
                 <div><p className="text-xs text-gray-500">STUDENT</p><p className="text-sm font-semibold text-gray-800">{selOrder.user?.email||selOrder.studentName||'N/A'}</p></div>
                 <div><p className="text-xs text-gray-500">PHONE</p><p className="text-sm text-gray-700">{selOrder.user?.phone||'—'}</p></div>
-                <div><p className="text-xs text-gray-500">HALL</p><p className="text-sm text-gray-700">{selOrder.user?.hall||'—'}</p></div>
+                <div><p className="text-xs text-gray-500">AREA</p><p className="text-sm text-gray-700">{selOrder.user?.area||'—'}</p></div>
                 <div><p className="text-xs text-gray-500">ROOM</p><p className="text-sm text-gray-700">{selOrder.user?.roomNumber||'—'}</p></div>
                 <div><p className="text-xs text-gray-500">LOCATION</p><p className="text-sm text-gray-700">{selOrder.location||'N/A'}</p></div>
                 <div><p className="text-xs text-gray-500">AMOUNT</p><p className="text-sm font-semibold">{selOrder.quantity||selOrder.amount||0}L</p></div>
