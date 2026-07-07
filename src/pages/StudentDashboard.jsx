@@ -26,6 +26,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -280,6 +281,7 @@ const StudentDashboard = () => {
   const [showUserMenu, setShowUserMenu]           = useState(false);
   const userMenuRef = useRef(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [selectedQtyOption, setSelectedQtyOption] = useState('');
 
   // ── Notifications ────────────────────────────────────────────────────────
   const [notifications, setNotifications] = useState([
@@ -302,6 +304,68 @@ const StudentDashboard = () => {
     console.error('Error marking notifications read:', err);
   }
 };
+
+const JerricanIcon = ({ size = 40, color = '#16A34A' }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Drop shadow on ground */}
+    <ellipse cx="33" cy="60" rx="20" ry="3" fill="#000000" fillOpacity="0.12"/>
+
+    {/* Main body - wide rectangular plastic can */}
+    <rect x="12" y="18" width="40" height="40" rx="4" fill={color} stroke="#15803D" strokeWidth="1.5"/>
+
+    {/* Top edge highlight */}
+    <path d="M12 22 Q12 18 16 18 L48 18 Q52 18 52 22" fill="none" stroke="#4ADE80" strokeWidth="2" strokeLinecap="round"/>
+
+    {/* Left side small vent spout */}
+    <rect x="10" y="22" width="4" height="6" rx="1" fill="#15803D"/>
+    <circle cx="12" cy="22" r="2" fill="#166534"/>
+
+    {/* Right side main pouring spout (slanted upwards) */}
+    <path d="M48 22 L54 18 L56 20 L50 24 Z" fill="#15803D" stroke="#166534" strokeWidth="1"/>
+    <rect x="52" y="16" width="6" height="5" rx="1.5" fill="#2D2D2D" transform="rotate(25 55 18)"/>
+    
+    {/* Black screw cap on spout */}
+    <ellipse cx="55" cy="17" rx="3.5" ry="2.5" fill="#1A1A1A" transform="rotate(25 55 17)"/>
+    <ellipse cx="55" cy="17" rx="2.5" ry="1.5" fill="#333333" transform="rotate(25 55 17)"/>
+
+    {/* Handle (wide flat top handle) */}
+    <path d="M18 18 L18 8 Q18 4 22 4 L42 4 Q46 4 46 8 L46 18" 
+      fill="none" stroke={color} strokeWidth="6" strokeLinecap="round"/>
+    <path d="M18 18 L18 8 Q18 4 22 4 L42 4 Q46 4 46 8 L46 18" 
+      fill="none" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round"/>
+    
+    {/* Handle inner cutout */}
+    <path d="M24 18 L24 9 Q24 7 26 7 L38 7 Q40 7 40 9 L40 18" 
+      fill="#FFFFFF" fillOpacity="0.3" stroke="none"/>
+
+    {/* Central X-pattern indentation */}
+    <g fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round">
+      {/* Diagonal ribs forming the X */}
+      <path d="M18 26 L30 38" strokeOpacity="0.5"/>
+      <path d="M46 26 L34 38" strokeOpacity="0.5"/>
+      <path d="M18 50 L30 38" strokeOpacity="0.5"/>
+      <path d="M46 50 L34 38" strokeOpacity="0.5"/>
+      
+      {/* Center square block */}
+      <rect x="26" y="32" width="12" height="12" rx="2" fill={color} stroke="#166534" strokeOpacity="0.6"/>
+    </g>
+
+    {/* 3D shading overlay */}
+    <rect x="12" y="18" width="40" height="40" rx="4" 
+      fill="url(#gloss)" fillOpacity="0.15" pointerEvents="none"/>
+
+    {/* Bottom edge shadow */}
+    <path d="M12 56 Q12 58 16 58 L48 58 Q52 58 52 56" fill="none" stroke="#15803D" strokeWidth="2"/>
+
+    <defs>
+      <linearGradient id="gloss" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#FFFFFF"/>
+        <stop offset="40%" stopColor="#FFFFFF" stopOpacity="0.1"/>
+        <stop offset="100%" stopColor="#000000"/>
+      </linearGradient>
+    </defs>
+  </svg>
+);
   const clearAllNotifications = async () => {
   try {
     const token = localStorage.getItem('token');
@@ -1704,13 +1768,14 @@ console.log('the driver location',driverLocation)
       </main>
 
       {/* Request Modal */}
+      {/* Request Modal */}
       {showRequestModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-6">
               <div className="flex justify-between items-center mb-5">
                 <h3 className="text-xl font-bold text-gray-800">Request Water Delivery</h3>
-                <button onClick={() => setShowRequestModal(false)} className="text-gray-400 hover:text-gray-700">✕</button>
+                <button onClick={() => { setShowRequestModal(false); setSelectedQtyOption(''); }} className="text-gray-400 hover:text-gray-700">✕</button>
               </div>
               <form onSubmit={handleRequestSubmit} className="space-y-4">
                 <div>
@@ -1725,32 +1790,74 @@ console.log('the driver location',driverLocation)
                     {['08:00 - 10:00','10:00 - 12:00','12:00 - 14:00','14:00 - 16:00','16:00 - 18:00'].map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
+
+                {/* Quantity selection cards */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Quantity</label>
-                  <select name="quantity" required
-                    onChange={e => {
-                        const price = quantityPrices[e.target.value];
-                        document.getElementById('priceDisplay').textContent = price ? `₦${price.toLocaleString()}` : '₦0';
-                      }}
-                    className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                    <option value="">Select quantity</option>
-                    <option value="500 Liters (Standard)">
-                      1 Jerrican 30 liters (Standard) - ₦{pricing.price500L.toLocaleString()}
-                    </option>
-                    <option value="1000 Liters (Large)">
-                      2 Jerrican 60 liters (Large) - ₦{pricing.price1000L.toLocaleString()}
-                    </option>
-                    <option value="1500 Liters (Extra Large)">
-                      5 Jerrican 150 liters  (Extra Large) - ₦{pricing.price1500L.toLocaleString()}
-                    </option>
-                  </select>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Quantity</label>
+                  <div className="grid grid-cols-1 gap-3">
+                    {[
+                      {
+                        value: '500 Liters (Standard)',
+                        label: '1 Jerrican · 30 Liters',
+                        tag: 'Standard',
+                        price: pricing.price500L,
+                        iconSize: 32,
+                      },
+                      {
+                        value: '1000 Liters (Large)',
+                        label: '2 Jerricans · 60 Liters',
+                        tag: 'Large',
+                        price: pricing.price1000L,
+                        iconSize: 42,
+                      },
+                      {
+                        value: '1500 Liters (Extra Large)',
+                        label: '5 Jerricans · 150 Liters',
+                        tag: 'Extra Large',
+                        price: pricing.price1500L,
+                        iconSize: 52,
+                      },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setSelectedQtyOption(opt.value)}
+                        className={`flex items-center gap-4 p-3.5 rounded-xl border-2 text-left transition-all
+                          ${selectedQtyOption === opt.value
+                            ? 'border-green-500 bg-green-50 shadow-sm'
+                            : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                      >
+                        <div className="shrink-0 w-14 h-14 flex items-center justify-center bg-gray-50 rounded-lg">
+                          <JerricanIcon size={opt.iconSize} color={selectedQtyOption === opt.value ? '#16a34a' : '#9ca3af'} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-gray-800">{opt.label}</p>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                              selectedQtyOption === opt.value ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                            }`}>{opt.tag}</span>
+                          </div>
+                          <p className="text-sm font-black text-green-600 mt-0.5">₦{opt.price.toLocaleString()}</p>
+                        </div>
+                        {selectedQtyOption === opt.value && (
+                          <FaCheckCircle className="text-green-500 text-lg shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Hidden input keeps handleRequestSubmit's FormData.get('quantity') working unchanged */}
+                  <input type="hidden" name="quantity" value={selectedQtyOption} required />
                 </div>
+
                 <div className="bg-green-50 p-3 rounded-xl">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-semibold text-gray-700">Total Amount:</span>
-                    <span id="priceDisplay" className="text-xl font-bold text-green-600">₦0</span>
+                    <span className="text-xl font-bold text-green-600">
+                      ₦{(quantityPrices[selectedQtyOption] || 0).toLocaleString()}
+                    </span>
                   </div>
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Special Instructions</label>
                   <textarea name="specialInstructions" rows="3"
@@ -1758,11 +1865,11 @@ console.log('the driver location',driverLocation)
                     placeholder="Any special requests or delivery notes…" />
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setShowRequestModal(false)} disabled={isProcessing}
+                  <button type="button" onClick={() => { setShowRequestModal(false); setSelectedQtyOption(''); }} disabled={isProcessing}
                     className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">
                     Cancel
                   </button>
-                  <button type="submit" disabled={isProcessing || !paystackLoaded}
+                  <button type="submit" disabled={isProcessing || !paystackLoaded || !selectedQtyOption}
                     className="flex-1 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-bold hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     {isProcessing ? 'Processing...' : !paystackLoaded ? 'Loading Payment...' : 'Pay & Submit'}
                   </button>

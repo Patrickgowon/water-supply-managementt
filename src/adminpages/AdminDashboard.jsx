@@ -61,7 +61,6 @@ const Toast = ({ toasts, remove }) => (
   </div>
 );
 
-
 const useToast = () => {
   const [toasts, setToasts] = useState([]);
   const add = useCallback((type, message, sub = '', ms = 5500) => {
@@ -244,6 +243,129 @@ const DriverDetailModal = ({ show, driver, onClose, onApprove, onSuspend, onDele
 };
 
 // ════════════════════════════════════════════════════════════
+//  STUDENT DETAIL MODAL - ADD THIS MISSING COMPONENT
+// ════════════════════════════════════════════════════════════
+const StudentDetailModal = ({ show, student, onClose, onVerify, onDelete }) => {
+  if (!show || !student) return null;
+
+  const STATUS_COLOR = {
+    active:    'bg-green-100 text-green-700',
+    pending:   'bg-yellow-100 text-yellow-700',
+    inactive:  'bg-gray-100 text-gray-600',
+    suspended: 'bg-red-100 text-red-700',
+  };
+
+  const InfoRow = ({ icon: Icon, label, value }) => (
+    <div className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0">
+      <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
+        <Icon className="text-blue-600 text-sm" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{label}</p>
+        <p className="text-sm font-semibold text-gray-800 mt-0.5 break-words">{value || '—'}</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9997] p-4">
+      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden shadow-2xl flex flex-col">
+
+        {/* Header */}
+        <div className="bg-gradient-to-r from-green-600 to-indigo-700 p-5 flex items-start justify-between shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center text-white text-2xl font-black border-2 border-white/30">
+              {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-white">{student.firstName} {student.lastName}</h3>
+              <p className="text-blue-100 text-sm">{student.email}</p>
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${STATUS_COLOR[student.status] || 'bg-gray-100 text-gray-600'}`}>
+                  {student.status}
+                </span>
+                {student.verified && (
+                  <span className="px-2.5 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1">
+                    <FaShieldAlt size={9} /> Verified
+                  </span>
+                )}
+                <span className="px-2.5 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-bold">
+                  {student.matricNumber}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white text-2xl leading-none">✕</button>
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 divide-x divide-gray-100 bg-gray-50 border-b border-gray-100 shrink-0">
+          {[
+            { label: 'Balance',     value: `₦${(student.balance || 0).toLocaleString()}` },
+            { label: 'Level',       value: student.level || '—' },
+            { label: 'Plan',        value: student.plan || '—' },
+          ].map(s => (
+            <div key={s.label} className="py-3 text-center">
+              <p className={`text-lg font-black ${s.label === 'Balance' && student.balance < 0 ? 'text-red-600' : 'text-gray-800'}`}>
+                {s.value}
+              </p>
+              <p className="text-xs text-gray-500">{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 p-5">
+          <div className="grid md:grid-cols-2 gap-x-6">
+            <div>
+              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Personal Info</p>
+              <InfoRow icon={FaPhone}       label="Phone"         value={student.phone} />
+              <InfoRow icon={FaIdCard}      label="Matric Number" value={student.matricNumber} />
+              <InfoRow icon={FaUsers}       label="Department"    value={student.department} />
+              <InfoRow icon={FaChartBar}    label="Level"         value={student.level} />
+              <InfoRow icon={FaMapMarkerAlt}label="Hall"          value={student.hall} />
+              <InfoRow icon={FaMapMarkerAlt}label="Room Number"   value={student.roomNumber} />
+            </div>
+            <div>
+              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Academic & Plan</p>
+              <InfoRow icon={FaCalendarAlt} label="Registered"    value={student.createdAt ? new Date(student.createdAt).toLocaleDateString() : '—'} />
+              <InfoRow icon={FaTag}         label="Plan"          value={student.plan} />
+              <InfoRow icon={FaMoneyBillWave} label="Balance"     value={`₦${(student.balance || 0).toLocaleString()}`} />
+              <InfoRow icon={FaChartLine}   label="Total Orders"  value={student.totalOrders || 0} />
+              <InfoRow icon={FaCheckCircle} label="Completed"     value={student.completedOrders || 0} />
+            </div>
+          </div>
+        </div>
+
+        {/* Action Footer */}
+        <div className="border-t border-gray-100 p-4 flex flex-wrap gap-2 shrink-0 bg-gray-50">
+          {!student.verified && (
+            <button
+              onClick={() => { onVerify(student.id || student._id); onClose(); }}
+              className="flex-1 min-w-[120px] py-2.5 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors"
+            >
+              <FaUserCheck size={13} /> Verify Student
+            </button>
+          )}
+          <button
+            onClick={() => { onDelete(student.id || student._id); onClose(); }}
+            className="px-4 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-100 flex items-center gap-2 transition-colors"
+          >
+            <FaTrash size={12} /> Delete
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2.5 border border-gray-200 rounded-xl text-gray-600 text-sm font-medium hover:bg-gray-100 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ════════════════════════════════════════════════════════════
 //  ADMIN SETTINGS MODAL
 // ════════════════════════════════════════════════════════════
 const AdminSettings = ({ show, onClose, addToast }) => {
@@ -256,20 +378,20 @@ const AdminSettings = ({ show, onClose, addToast }) => {
   });
 
   const [pricing, setPricing] = useState({
-  price500L:  5000,
-  price1000L: 9000,
-  price1500L: 12000,
-  baseRatePerLiter: 10,
-});
+    price500L:  5000,
+    price1000L: 9000,
+    price1500L: 12000,
+    baseRatePerLiter: 10,
+  });
 
-const [commission, setCommission] = useState({
-  baseRatePerLiter:   100,  // ₦ per liter delivered
-  bonusPerDelivery:   200,  // ₦ bonus per completed delivery
-  tipAverage:         50,   // ₦ average tip per delivery
-  commissionPercent:  15,   // % of order value
-});
+  const [commission, setCommission] = useState({
+    baseRatePerLiter:   100,  // ₦ per liter delivered
+    bonusPerDelivery:   200,  // ₦ bonus per completed delivery
+    tipAverage:         50,   // ₦ average tip per delivery
+    commissionPercent:  15,   // % of order value
+  });
 
-const [savingPricing, setSavingPricing] = useState(false);
+  const [savingPricing, setSavingPricing] = useState(false);
 
   const [pwForm, setPwForm] = useState({
     currentPassword: '', newPassword: '', confirmPassword: ''
@@ -311,24 +433,21 @@ const [savingPricing, setSavingPricing] = useState(false);
         }
         if (settingsRes.data.success) {
           const s = settingsRes.data.data;
-           console.log('💰 Settings from API:', s.price500L, s.price1000L, s.price1500L); // ✅ add this
           setCfg(prev => ({ ...prev, ...s }));
           
-          // ✅ Also load pricing from saved settings
           setPricing({
             price500L:  s.price500L  || 5000,
             price1000L: s.price1000L || 9000,
             price1500L: s.price1500L || 12000,
           });
 
-  // ✅ Also load commission
-        setCommission({
-          baseRatePerLiter:  s.baseRatePerLiter  || 100,
-          bonusPerDelivery:  s.bonusPerDelivery  || 200,
-          tipAverage:        s.tipAverage        || 50,
-          commissionPercent: s.commissionPercent || 15,
-        });
-}
+          setCommission({
+            baseRatePerLiter:  s.baseRatePerLiter  || 100,
+            bonusPerDelivery:  s.bonusPerDelivery  || 200,
+            tipAverage:        s.tipAverage        || 50,
+            commissionPercent: s.commissionPercent || 15,
+          });
+        }
       } catch (err) {
         addToast('error', 'Failed to load settings', err.response?.data?.message);
       } finally {
@@ -432,354 +551,354 @@ const [savingPricing, setSavingPricing] = useState(false);
     { id: 'security',      ico: '🔒', label: 'Security'      },
     { id: 'system',        ico: '⚙️', label: 'System'        },
     { id: 'pricing',       ico: '💰', label: 'Pricing'       }, 
-   { id: 'commission',    ico: '📊', label: 'Commission'    }, 
+    { id: 'commission',    ico: '📊', label: 'Commission'    }, 
   ];
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9997] p-2 sm:p-4">
-  <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
 
-    {/* ── SIDEBAR (always top, always horizontal) ── */}
-    <div className="w-full bg-gray-50 border-b border-gray-100 p-3 flex flex-col shrink-0">
+        {/* ── SIDEBAR (always top, always horizontal) ── */}
+        <div className="w-full bg-gray-50 border-b border-gray-100 p-3 flex flex-col shrink-0">
 
-      {/* Header row */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <FaCog className="text-green-600" />
-          <span className="font-bold text-gray-800 text-sm">Admin Settings</span>
+          {/* Header row */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <FaCog className="text-green-600" />
+              <span className="font-bold text-gray-800 text-sm">Admin Settings</span>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors">
+              <FaTimes size={16} />
+            </button>
+          </div>
+
+          {/* Horizontal scrollable nav */}
+          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+            {SECS.map(s => (
+              <button
+                key={s.id}
+                onClick={() => setSection(s.id)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all shrink-0
+                  ${section === s.id
+                    ? 'bg-green-600 text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-200 bg-white border border-gray-200'}`}
+              >
+                <span>{s.ico}</span>
+                <span>{s.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors">
-          <FaTimes size={16} />
-        </button>
-      </div>
 
-      {/* Horizontal scrollable nav */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-        {SECS.map(s => (
-          <button
-            key={s.id}
-            onClick={() => setSection(s.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all shrink-0
-              ${section === s.id
-                ? 'bg-green-600 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-200 bg-white border border-gray-200'}`}
-          >
-            <span>{s.ico}</span>
-            <span>{s.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-
-    {/* ── CONTENT AREA ── */}
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <FaSpinner className="animate-spin text-green-600 text-3xl" />
-        </div>
-      ) : (
-        <>
-          {section === 'profile' && (
-            <div>
-              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4 sm:mb-5">Admin Profile</h4>
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-4 mb-5 p-4 bg-green-50 rounded-xl border border-green-100">
-                <div className="w-14 h-14 bg-gradient-to-br from-green-600 to-emerald-700 rounded-full flex items-center justify-center text-white text-xl font-black shrink-0">
-                  {adminInfo.firstName?.charAt(0)}{adminInfo.lastName?.charAt(0)}
-                </div>
-                <div className="text-center sm:text-left">
-                  <p className="font-bold text-gray-800">{adminInfo.firstName} {adminInfo.lastName}</p>
-                  <p className="text-sm text-gray-500">{adminInfo.email}</p>
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Administrator</span>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-gray-500 font-medium mb-1 block">First Name</label>
-                    <input value={adminInfo.firstName}
-                      onChange={e => setAdminInfo(p => ({...p, firstName: e.target.value}))}
-                      className={inputClass} placeholder="First name" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 font-medium mb-1 block">Last Name</label>
-                    <input value={adminInfo.lastName}
-                      onChange={e => setAdminInfo(p => ({...p, lastName: e.target.value}))}
-                      className={inputClass} placeholder="Last name" />
-                  </div>
-                </div>
+        {/* ── CONTENT AREA ── */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <FaSpinner className="animate-spin text-green-600 text-3xl" />
+            </div>
+          ) : (
+            <>
+              {section === 'profile' && (
                 <div>
-                  <label className="text-xs text-gray-500 font-medium mb-1 block">Phone Number</label>
-                  <input value={adminInfo.phone}
-                    onChange={e => setAdminInfo(p => ({...p, phone: e.target.value}))}
-                    className={inputClass} placeholder="Phone number" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 font-medium mb-1 block">Email</label>
-                  <input value={adminInfo.email} disabled
-                    className={`${inputClass} bg-gray-50 text-gray-400 cursor-not-allowed`} />
-                  <p className="text-xs text-gray-400 mt-1">Email cannot be changed.</p>
-                </div>
-                <button onClick={handleProfileSave} disabled={saving}
-                  className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {saving ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Profile'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {section === 'password' && (
-            <div>
-              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4 sm:mb-5">Change Password</h4>
-              <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
-                  🔒 Password must be at least 8 characters long.
-                </div>
-                {[
-                  { key: 'currentPassword', label: 'Current Password', show: 'current' },
-                  { key: 'newPassword', label: 'New Password', show: 'new' },
-                  { key: 'confirmPassword', label: 'Confirm New Password', show: 'confirm' },
-                ].map(({ key, label, show }) => (
-                  <div key={key}>
-                    <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
-                    <div className="relative">
-                      <input
-                        type={showPw[show] ? 'text' : 'password'}
-                        value={pwForm[key]}
-                        onChange={e => setPwForm(p => ({...p, [key]: e.target.value}))}
-                        className={`${inputClass} pr-10`}
-                        placeholder={label}
-                      />
-                      <button type="button"
-                        onClick={() => setShowPw(p => ({...p, [show]: !p[show]}))}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">
-                        {showPw[show] ? '🙈' : '👁️'}
-                      </button>
+                  <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4 sm:mb-5">Admin Profile</h4>
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-4 mb-5 p-4 bg-green-50 rounded-xl border border-green-100">
+                    <div className="w-14 h-14 bg-gradient-to-br from-green-600 to-emerald-700 rounded-full flex items-center justify-center text-white text-xl font-black shrink-0">
+                      {adminInfo.firstName?.charAt(0)}{adminInfo.lastName?.charAt(0)}
+                    </div>
+                    <div className="text-center sm:text-left">
+                      <p className="font-bold text-gray-800">{adminInfo.firstName} {adminInfo.lastName}</p>
+                      <p className="text-sm text-gray-500">{adminInfo.email}</p>
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Administrator</span>
                     </div>
                   </div>
-                ))}
-                {pwForm.newPassword && (
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-500">Password strength</span>
-                      <span className={pwForm.newPassword.length >= 12 ? 'text-green-600 font-semibold' : pwForm.newPassword.length >= 8 ? 'text-yellow-600 font-semibold' : 'text-red-600 font-semibold'}>
-                        {pwForm.newPassword.length >= 12 ? 'Strong' : pwForm.newPassword.length >= 8 ? 'Good' : 'Too short'}
-                      </span>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium mb-1 block">First Name</label>
+                        <input value={adminInfo.firstName}
+                          onChange={e => setAdminInfo(p => ({...p, firstName: e.target.value}))}
+                          className={inputClass} placeholder="First name" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium mb-1 block">Last Name</label>
+                        <input value={adminInfo.lastName}
+                          onChange={e => setAdminInfo(p => ({...p, lastName: e.target.value}))}
+                          className={inputClass} placeholder="Last name" />
+                      </div>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-300 ${pwForm.newPassword.length >= 12 ? 'w-full bg-green-500' : pwForm.newPassword.length >= 8 ? 'w-2/3 bg-yellow-500' : 'w-1/3 bg-red-500'}`} />
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1 block">Phone Number</label>
+                      <input value={adminInfo.phone}
+                        onChange={e => setAdminInfo(p => ({...p, phone: e.target.value}))}
+                        className={inputClass} placeholder="Phone number" />
                     </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1 block">Email</label>
+                      <input value={adminInfo.email} disabled
+                        className={`${inputClass} bg-gray-50 text-gray-400 cursor-not-allowed`} />
+                      <p className="text-xs text-gray-400 mt-1">Email cannot be changed.</p>
+                    </div>
+                    <button onClick={handleProfileSave} disabled={saving}
+                      className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                      {saving ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Profile'}
+                    </button>
                   </div>
-                )}
-                {pwForm.confirmPassword && (
-                  <p className={`text-xs font-medium flex items-center gap-1 ${pwForm.newPassword === pwForm.confirmPassword ? 'text-green-600' : 'text-red-500'}`}>
-                    {pwForm.newPassword === pwForm.confirmPassword ? '✅ Passwords match' : '❌ Passwords do not match'}
-                  </p>
-                )}
-                <button onClick={handlePasswordChange}
-                  disabled={saving || !pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword}
-                  className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {saving ? <><FaSpinner className="animate-spin" /> Changing...</> : '🔑 Change Password'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {section === 'notifications' && (
-            <div>
-              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4">Notification Preferences</h4>
-              <TR label="New Order Alerts" sub="Notify when a student places an order" k="orderAlerts" />
-              <TR label="Driver Status Alerts" sub="When drivers go online/offline" k="driverAlerts" />
-              <TR label="Payment Alerts" sub="Confirmed and failed payments" k="paymentAlerts" />
-              <TR label="Incident Alerts" sub="Driver-reported incidents" k="incidentAlerts" />
-              <div className="mt-5 pt-4 border-t border-gray-100">
-                <p className="text-xs text-gray-400 uppercase font-semibold mb-3">Channels</p>
-                <TR label="Email Digest" sub="Daily summary at 8 AM" k="emailDigest" />
-                <TR label="SMS Alerts" sub="Critical alerts via SMS" k="smsAlerts" />
-                <TR label="Push Notifications" sub="Browser push" k="pushAlerts" />
-              </div>
-            </div>
-          )}
-
-          {section === 'automation' && (
-            <div>
-              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4">Automation Rules</h4>
-              <TR label="Auto-Approve Orders" sub="Automatically approve paid orders" k="autoApprove" />
-              <TR label="Auto-Assign Drivers" sub="Auto-match nearest available driver" k="autoAssign" />
-              <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-xs text-yellow-800">
-                ⚠️ Auto-assign picks the nearest online driver. Manual review is recommended for high-priority orders.
-              </div>
-            </div>
-          )}
-
-          {section === 'security' && (
-            <div>
-              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4">Security</h4>
-              <TR label="Two-Factor Authentication" sub="Require 2FA for admin login" k="twoFA" />
-              <TR label="Session Timeout" sub="Auto-logout after 30 min of inactivity" k="sessionTimeout" />
-              <TR label="Audit Log" sub="Track all admin actions" k="auditLog" />
-              <div className="mt-5 pt-4 border-t border-gray-100 space-y-3">
-                <button onClick={() => addToast('info', 'Audit log exported', 'Last 30 days downloaded.')}
-                  className="w-full py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 flex items-center justify-center gap-2">
-                  <FaDownload size={13} /> Export Audit Log
-                </button>
-                <button onClick={() => addToast('warn', 'All sessions terminated')}
-                  className="w-full py-2.5 bg-red-50 text-red-700 rounded-xl text-sm font-medium hover:bg-red-100 border border-red-200 flex items-center justify-center gap-2">
-                  <FaSignOutAlt size={13} /> Terminate All Sessions
-                </button>
-              </div>
-            </div>
-          )}
-
-          {section === 'system' && (
-            <div>
-              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4">System Settings</h4>
-              <TR label="Maintenance Mode" sub="Disable student/driver access temporarily" k="maintenanceMode" />
-              {cfg.maintenanceMode && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-700 mb-4">
-                  ⚠️ Maintenance mode is ON — students and drivers cannot access the system.
                 </div>
               )}
-              <div className="mt-5 space-y-4">
-                {[
-                  { label: 'Max deliveries/driver/day', key: 'maxDeliveriesPerDriver' },
-                  { label: 'Default delivery window (hrs)', key: 'defaultDeliveryWindow' },
-                  { label: 'Order cancellation window (hrs)', key: 'cancellationWindow' },
-                ].map(({ label, key }) => (
-                  <div key={key}>
-                    <label className="text-xs text-gray-500 mb-1 block font-medium">{label}</label>
-                    <input type="number" value={cfg[key]}
-                      onChange={e => setCfg(p => ({...p, [key]: Number(e.target.value)}))}
-                      className={inputClass} />
-                  </div>
-                ))}
-                <button onClick={handleSystemSave} disabled={saving}
-                  className="w-full py-2.5 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {saving ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save System Settings'}
-                </button>
-              </div>
-            </div>
-          )}
 
-          {section === 'pricing' && (
-            <div>
-              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-2">Water Pricing</h4>
-              <p className="text-xs text-gray-500 mb-5">Set the price students pay per water quantity.</p>
-              <div className="space-y-4">
-                {[
-                  { label: '500 Liters (Standard)', key: 'price500L', desc: 'Price for 500L order' },
-                  { label: '1000 Liters (Large)', key: 'price1000L', desc: 'Price for 1000L order' },
-                  { label: '1500 Liters (Extra)', key: 'price1500L', desc: 'Price for 1500L order' },
-                ].map(({ label, key, desc }) => (
-                  <div key={key}>
-                    <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
-                    <p className="text-[10px] text-gray-400 mb-1">{desc}</p>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">₦</span>
-                      <input type="number" value={pricing[key]}
-                        onChange={e => setPricing(p => ({...p, [key]: Number(e.target.value)}))}
-                        className="w-full border border-gray-200 rounded-xl pl-8 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+              {section === 'password' && (
+                <div>
+                  <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4 sm:mb-5">Change Password</h4>
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                      🔒 Password must be at least 8 characters long.
                     </div>
-                    <p className="text-xs text-green-600 mt-0.5 font-medium">= ₦{pricing[key].toLocaleString()} per delivery</p>
+                    {[
+                      { key: 'currentPassword', label: 'Current Password', show: 'current' },
+                      { key: 'newPassword', label: 'New Password', show: 'new' },
+                      { key: 'confirmPassword', label: 'Confirm New Password', show: 'confirm' },
+                    ].map(({ key, label, show }) => (
+                      <div key={key}>
+                        <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
+                        <div className="relative">
+                          <input
+                            type={showPw[show] ? 'text' : 'password'}
+                            value={pwForm[key]}
+                            onChange={e => setPwForm(p => ({...p, [key]: e.target.value}))}
+                            className={`${inputClass} pr-10`}
+                            placeholder={label}
+                          />
+                          <button type="button"
+                            onClick={() => setShowPw(p => ({...p, [show]: !p[show]}))}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">
+                            {showPw[show] ? '🙈' : '👁️'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {pwForm.newPassword && (
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-gray-500">Password strength</span>
+                          <span className={pwForm.newPassword.length >= 12 ? 'text-green-600 font-semibold' : pwForm.newPassword.length >= 8 ? 'text-yellow-600 font-semibold' : 'text-red-600 font-semibold'}>
+                            {pwForm.newPassword.length >= 12 ? 'Strong' : pwForm.newPassword.length >= 8 ? 'Good' : 'Too short'}
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all duration-300 ${pwForm.newPassword.length >= 12 ? 'w-full bg-green-500' : pwForm.newPassword.length >= 8 ? 'w-2/3 bg-yellow-500' : 'w-1/3 bg-red-500'}`} />
+                        </div>
+                      </div>
+                    )}
+                    {pwForm.confirmPassword && (
+                      <p className={`text-xs font-medium flex items-center gap-1 ${pwForm.newPassword === pwForm.confirmPassword ? 'text-green-600' : 'text-red-500'}`}>
+                        {pwForm.newPassword === pwForm.confirmPassword ? '✅ Passwords match' : '❌ Passwords do not match'}
+                      </p>
+                    )}
+                    <button onClick={handlePasswordChange}
+                      disabled={saving || !pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword}
+                      className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                      {saving ? <><FaSpinner className="animate-spin" /> Changing...</> : '🔑 Change Password'}
+                    </button>
                   </div>
-                ))}
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
-                  ℹ️ Price changes will apply to new orders only. Existing paid orders are not affected.
                 </div>
-                <button type="button"
-                  onClick={async () => {
-                    try {
-                      setSavingPricing(true);
-                      const token = localStorage.getItem('token');
-                      const res = await axios.put(`${API_URL}/admin/settings/pricing`, pricing, {
-                        headers: { Authorization: `Bearer ${token}` }
-                      });
-                      if (res.data.success) addToast('success', 'Pricing updated successfully');
-                    } catch (err) {
-                      addToast('error', 'Failed to update pricing', err.response?.data?.message);
-                    } finally {
-                      setSavingPricing(false);
-                    }
-                  }}
-                  disabled={savingPricing}
-                  className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {savingPricing ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Pricing'}
-                </button>
-              </div>
-            </div>
-          )}
+              )}
 
-          {section === 'commission' && (
-            <div>
-              <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-2">Driver Commission</h4>
-              <p className="text-xs text-gray-500 mb-5">Configure how drivers are paid per delivery.</p>
-              <div className="space-y-4">
-                {[
-                  { label: 'Base Rate per Liter (₦)', key: 'baseRatePerLiter', desc: 'Amount paid per liter delivered' },
-                  { label: 'Bonus per Delivery (₦)', key: 'bonusPerDelivery', desc: 'Fixed bonus for each completed delivery' },
-                  { label: 'Average Tip (₦)', key: 'tipAverage', desc: 'Average tip amount per delivery' },
-                  { label: 'Commission Percentage (%)', key: 'commissionPercent', desc: '% of order value paid to driver' },
-                ].map(({ label, key, desc }) => (
-                  <div key={key}>
-                    <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
-                    <p className="text-[10px] text-gray-400 mb-1">{desc}</p>
-                    <input type="number" value={commission[key]}
-                      onChange={e => setCommission(p => ({...p, [key]: Number(e.target.value)}))}
-                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
-                  </div>
-                ))}
-                <div className="bg-green-50 border border-green-100 rounded-xl p-4">
-                  <p className="text-xs font-bold text-gray-700 mb-2">📊 Example Earnings (500L delivery)</p>
-                  <div className="space-y-1 text-xs text-gray-600">
-                    <div className="flex justify-between">
-                      <span>Base ({commission.baseRatePerLiter} × 500L)</span>
-                      <span className="font-bold">₦{(commission.baseRatePerLiter * 500).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Bonus per delivery</span>
-                      <span className="font-bold">₦{commission.bonusPerDelivery.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Average tip</span>
-                      <span className="font-bold">₦{commission.tipAverage.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between border-t border-green-200 pt-1 mt-1">
-                      <span className="font-bold text-green-700">Total per delivery</span>
-                      <span className="font-black text-green-700">
-                        ₦{(commission.baseRatePerLiter * 500 + commission.bonusPerDelivery + commission.tipAverage).toLocaleString()}
-                      </span>
-                    </div>
+              {section === 'notifications' && (
+                <div>
+                  <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4">Notification Preferences</h4>
+                  <TR label="New Order Alerts" sub="Notify when a student places an order" k="orderAlerts" />
+                  <TR label="Driver Status Alerts" sub="When drivers go online/offline" k="driverAlerts" />
+                  <TR label="Payment Alerts" sub="Confirmed and failed payments" k="paymentAlerts" />
+                  <TR label="Incident Alerts" sub="Driver-reported incidents" k="incidentAlerts" />
+                  <div className="mt-5 pt-4 border-t border-gray-100">
+                    <p className="text-xs text-gray-400 uppercase font-semibold mb-3">Channels</p>
+                    <TR label="Email Digest" sub="Daily summary at 8 AM" k="emailDigest" />
+                    <TR label="SMS Alerts" sub="Critical alerts via SMS" k="smsAlerts" />
+                    <TR label="Push Notifications" sub="Browser push" k="pushAlerts" />
                   </div>
                 </div>
-                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-xs text-yellow-800">
-                  ⚠️ Commission changes affect future earnings calculations. Past earnings are not recalculated.
+              )}
+
+              {section === 'automation' && (
+                <div>
+                  <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4">Automation Rules</h4>
+                  <TR label="Auto-Approve Orders" sub="Automatically approve paid orders" k="autoApprove" />
+                  <TR label="Auto-Assign Drivers" sub="Auto-match nearest available driver" k="autoAssign" />
+                  <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-xs text-yellow-800">
+                    ⚠️ Auto-assign picks the nearest online driver. Manual review is recommended for high-priority orders.
+                  </div>
                 </div>
-                <button
-                  onClick={async () => {
-                    try {
-                      setSavingPricing(true);
-                      const token = localStorage.getItem('token');
-                      const res = await axios.put(`${API_URL}/admin/settings/commission`, commission, {
-                        headers: { Authorization: `Bearer ${token}` }
-                      });
-                      if (res.data.success) addToast('success', 'Commission rates updated successfully');
-                    } catch (err) {
-                      addToast('error', 'Failed to update commission', err.response?.data?.message);
-                    } finally {
-                      setSavingPricing(false);
-                    }
-                  }}
-                  disabled={savingPricing}
-                  className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {savingPricing ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Commission Rates'}
-                </button>
-              </div>
-            </div>
+              )}
+
+              {section === 'security' && (
+                <div>
+                  <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4">Security</h4>
+                  <TR label="Two-Factor Authentication" sub="Require 2FA for admin login" k="twoFA" />
+                  <TR label="Session Timeout" sub="Auto-logout after 30 min of inactivity" k="sessionTimeout" />
+                  <TR label="Audit Log" sub="Track all admin actions" k="auditLog" />
+                  <div className="mt-5 pt-4 border-t border-gray-100 space-y-3">
+                    <button onClick={() => addToast('info', 'Audit log exported', 'Last 30 days downloaded.')}
+                      className="w-full py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 flex items-center justify-center gap-2">
+                      <FaDownload size={13} /> Export Audit Log
+                    </button>
+                    <button onClick={() => addToast('warn', 'All sessions terminated')}
+                      className="w-full py-2.5 bg-red-50 text-red-700 rounded-xl text-sm font-medium hover:bg-red-100 border border-red-200 flex items-center justify-center gap-2">
+                      <FaSignOutAlt size={13} /> Terminate All Sessions
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {section === 'system' && (
+                <div>
+                  <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-4">System Settings</h4>
+                  <TR label="Maintenance Mode" sub="Disable student/driver access temporarily" k="maintenanceMode" />
+                  {cfg.maintenanceMode && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-700 mb-4">
+                      ⚠️ Maintenance mode is ON — students and drivers cannot access the system.
+                    </div>
+                  )}
+                  <div className="mt-5 space-y-4">
+                    {[
+                      { label: 'Max deliveries/driver/day', key: 'maxDeliveriesPerDriver' },
+                      { label: 'Default delivery window (hrs)', key: 'defaultDeliveryWindow' },
+                      { label: 'Order cancellation window (hrs)', key: 'cancellationWindow' },
+                    ].map(({ label, key }) => (
+                      <div key={key}>
+                        <label className="text-xs text-gray-500 mb-1 block font-medium">{label}</label>
+                        <input type="number" value={cfg[key]}
+                          onChange={e => setCfg(p => ({...p, [key]: Number(e.target.value)}))}
+                          className={inputClass} />
+                      </div>
+                    ))}
+                    <button onClick={handleSystemSave} disabled={saving}
+                      className="w-full py-2.5 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                      {saving ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save System Settings'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {section === 'pricing' && (
+                <div>
+                  <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-2">Water Pricing</h4>
+                  <p className="text-xs text-gray-500 mb-5">Set the price students pay per water quantity.</p>
+                  <div className="space-y-4">
+                    {[
+                      { label: '500 Liters (Standard)', key: 'price500L', desc: 'Price for 500L order' },
+                      { label: '1000 Liters (Large)', key: 'price1000L', desc: 'Price for 1000L order' },
+                      { label: '1500 Liters (Extra)', key: 'price1500L', desc: 'Price for 1500L order' },
+                    ].map(({ label, key, desc }) => (
+                      <div key={key}>
+                        <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
+                        <p className="text-[10px] text-gray-400 mb-1">{desc}</p>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">₦</span>
+                          <input type="number" value={pricing[key]}
+                            onChange={e => setPricing(p => ({...p, [key]: Number(e.target.value)}))}
+                            className="w-full border border-gray-200 rounded-xl pl-8 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+                        </div>
+                        <p className="text-xs text-green-600 mt-0.5 font-medium">= ₦{pricing[key].toLocaleString()} per delivery</p>
+                      </div>
+                    ))}
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                      ℹ️ Price changes will apply to new orders only. Existing paid orders are not affected.
+                    </div>
+                    <button type="button"
+                      onClick={async () => {
+                        try {
+                          setSavingPricing(true);
+                          const token = localStorage.getItem('token');
+                          const res = await axios.put(`${API_URL}/admin/settings/pricing`, pricing, {
+                            headers: { Authorization: `Bearer ${token}` }
+                          });
+                          if (res.data.success) addToast('success', 'Pricing updated successfully');
+                        } catch (err) {
+                          addToast('error', 'Failed to update pricing', err.response?.data?.message);
+                        } finally {
+                          setSavingPricing(false);
+                        }
+                      }}
+                      disabled={savingPricing}
+                      className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                      {savingPricing ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Pricing'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {section === 'commission' && (
+                <div>
+                  <h4 className="font-bold text-gray-800 text-base sm:text-lg mb-2">Driver Commission</h4>
+                  <p className="text-xs text-gray-500 mb-5">Configure how drivers are paid per delivery.</p>
+                  <div className="space-y-4">
+                    {[
+                      { label: 'Base Rate per Liter (₦)', key: 'baseRatePerLiter', desc: 'Amount paid per liter delivered' },
+                      { label: 'Bonus per Delivery (₦)', key: 'bonusPerDelivery', desc: 'Fixed bonus for each completed delivery' },
+                      { label: 'Average Tip (₦)', key: 'tipAverage', desc: 'Average tip amount per delivery' },
+                      { label: 'Commission Percentage (%)', key: 'commissionPercent', desc: '% of order value paid to driver' },
+                    ].map(({ label, key, desc }) => (
+                      <div key={key}>
+                        <label className="text-xs text-gray-500 font-medium mb-1 block">{label}</label>
+                        <p className="text-[10px] text-gray-400 mb-1">{desc}</p>
+                        <input type="number" value={commission[key]}
+                          onChange={e => setCommission(p => ({...p, [key]: Number(e.target.value)}))}
+                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+                      </div>
+                    ))}
+                    <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                      <p className="text-xs font-bold text-gray-700 mb-2">📊 Example Earnings (500L delivery)</p>
+                      <div className="space-y-1 text-xs text-gray-600">
+                        <div className="flex justify-between">
+                          <span>Base ({commission.baseRatePerLiter} × 500L)</span>
+                          <span className="font-bold">₦{(commission.baseRatePerLiter * 500).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Bonus per delivery</span>
+                          <span className="font-bold">₦{commission.bonusPerDelivery.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Average tip</span>
+                          <span className="font-bold">₦{commission.tipAverage.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between border-t border-green-200 pt-1 mt-1">
+                          <span className="font-bold text-green-700">Total per delivery</span>
+                          <span className="font-black text-green-700">
+                            ₦{(commission.baseRatePerLiter * 500 + commission.bonusPerDelivery + commission.tipAverage).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-xs text-yellow-800">
+                      ⚠️ Commission changes affect future earnings calculations. Past earnings are not recalculated.
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          setSavingPricing(true);
+                          const token = localStorage.getItem('token');
+                          const res = await axios.put(`${API_URL}/admin/settings/commission`, commission, {
+                            headers: { Authorization: `Bearer ${token}` }
+                          });
+                          if (res.data.success) addToast('success', 'Commission rates updated successfully');
+                        } catch (err) {
+                          addToast('error', 'Failed to update commission', err.response?.data?.message);
+                        } finally {
+                          setSavingPricing(false);
+                        }
+                      }}
+                      disabled={savingPricing}
+                      className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                      {savingPricing ? <><FaSpinner className="animate-spin" /> Saving...</> : '💾 Save Commission Rates'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
-        </>
-      )}
+        </div>
+      </div>
     </div>
-  </div>
-</div>
   );
 };
 
@@ -879,7 +998,7 @@ const BroadcastModal = ({ show, onClose, addToast }) => {
 const QuickAssignModal = ({ show, order, drivers, onAssign, onClose }) => {
   const [sel, setSel] = useState('');
   if (!show || !order) return null;
-  const avail = drivers.filter(d => d.status === 'active' && d.online); // ✅ FIXED: added .filter
+  const avail = drivers.filter(d => d.status === 'active' && d.online);
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9997] p-4">
       <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6">
@@ -968,9 +1087,28 @@ const AdminDashboard = () => {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsPeriod, setAnalyticsPeriod]   = useState('month');
 
-// ✅ PUT IT HERE (after all useState)
-  // ✅ PUT IT HERE (after all useState)
+  // Student detail modal state
+  const [showStudentDetail, setShowStudentDetail] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentDetailLoading, setStudentDetailLoading] = useState(false);
 
+  const viewStudentDetail = async (studentId) => {
+    try {
+      setStudentDetailLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/students/${studentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setSelectedStudent(res.data.data);
+        setShowStudentDetail(true);
+      }
+    } catch (err) {
+      addToast('error', 'Failed to load student details', err.response?.data?.message);
+    } finally {
+      setStudentDetailLoading(false);
+    }
+  };
 
   // Driver detail modal state
   const [showDriverDetail, setShowDriverDetail] = useState(false);
@@ -992,25 +1130,17 @@ const AdminDashboard = () => {
   const [incidents, setIncidents]         = useState([]);
   const [incidentsLoading, setIncidentsLoading] = useState(false);
 
+  // WITHDRAWAL STATE
+  const [withdrawals, setWithdrawals]               = useState([]);
+  const [withdrawalsLoading, setWithdrawalsLoading] = useState(false);
+  const [withdrawalFilter, setWithdrawalFilter]     = useState('pending');
+  const [rejectNote, setRejectNote]                 = useState('');
+  const [showRejectModal, setShowRejectModal]       = useState(false);
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState(null);
 
-// ✅ WITHDRAWAL STATE - Add after this line
-const [withdrawals, setWithdrawals]               = useState([]);
-const [withdrawalsLoading, setWithdrawalsLoading] = useState(false);
-const [withdrawalFilter, setWithdrawalFilter]     = useState('pending');
-const [rejectNote, setRejectNote]                 = useState('');
-const [showRejectModal, setShowRejectModal]       = useState(false);
-const [selectedWithdrawal, setSelectedWithdrawal] = useState(null);
-
-const [liveDriverLocations, setLiveDriverLocations] = useState({});
-const socketRef = useRef(null);
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-backend.onrender.com';
-
-
-// Add this state near your other useState declarations
-
-
-
-
+  const [liveDriverLocations, setLiveDriverLocations] = useState({});
+  const socketRef = useRef(null);
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-backend.onrender.com';
 
   // Fetch analytics function
   const fetchAnalytics = useCallback(async (period = 'month') => {
@@ -1045,7 +1175,6 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-
     }
   }, [addToast]);
 
-
   // Fetch analytics when analytics tab is opened
   useEffect(() => {
     if (activeTab === 'analytics') {
@@ -1055,9 +1184,8 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-
 
   // ─── Socket.io — Admin live tracking ────────────────────────────────────────
   useEffect(() => {
-    // ✅ CHANGE: Use polling instead of websocket for Render free tier
     socketRef.current = io(SOCKET_URL, {
-      transports: ['polling'], // 👈 Changed from ['websocket'] to ['polling']
+      transports: ['polling'],
     });
   
     socketRef.current.on('connect', () => {
@@ -1065,14 +1193,12 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-
       socketRef.current.emit('admin:joinTracking');
     });
   
-    // Listen for driver location updates
     socketRef.current.on('driver:locationUpdate', (data) => {
       const { driverId, lat, lng, locationName, timestamp } = data;
       setLiveDriverLocations(prev => ({
         ...prev,
         [driverId]: { lat, lng, locationName, timestamp }
       }));
-      // Also update drivers array currentLocation
       setDrivers(prev => prev.map(d =>
         (d._id || d.id) === driverId
           ? { ...d, currentLocation: locationName, currentLat: lat, currentLng: lng }
@@ -1084,7 +1210,6 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-
       console.log('🔌 Admin socket disconnected');
     });
   
-    // ✅ ADD: Handle connection errors
     socketRef.current.on('connect_error', (err) => {
       console.error('Socket connection error:', err.message);
     });
@@ -1094,60 +1219,60 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-
     };
   }, []);
 
-    // ─── WITHDRAWAL FUNCTIONS ──────────────────────────────────────────────────
-    const fetchWithdrawals = useCallback(async () => {
-      try {
-        setWithdrawalsLoading(true);
-        const token = localStorage.getItem('token');
-        const res = await axios.get(`${API_URL}/withdrawals?status=${withdrawalFilter}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.data.success) setWithdrawals(res.data.data);
-      } catch (err) {
-        addToast('error', 'Failed to load withdrawals', err.response?.data?.message);
-      } finally {
-        setWithdrawalsLoading(false);
+  // ─── WITHDRAWAL FUNCTIONS ──────────────────────────────────────────────────
+  const fetchWithdrawals = useCallback(async () => {
+    try {
+      setWithdrawalsLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/withdrawals?status=${withdrawalFilter}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) setWithdrawals(res.data.data);
+    } catch (err) {
+      addToast('error', 'Failed to load withdrawals', err.response?.data?.message);
+    } finally {
+      setWithdrawalsLoading(false);
+    }
+  }, [withdrawalFilter, addToast]);
+
+  useEffect(() => {
+    if (activeTab === 'withdrawals') fetchWithdrawals();
+  }, [activeTab, withdrawalFilter, fetchWithdrawals]);
+
+  const handleApproveWithdrawal = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`${API_URL}/withdrawals/${id}/approve`,
+        { adminNote: 'Payment processed and sent' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.data.success) {
+        addToast('success', 'Withdrawal approved!', 'Driver notified via app and email.');
+        fetchWithdrawals();
       }
-    }, [withdrawalFilter, addToast]);
-  
-    useEffect(() => {
-      if (activeTab === 'withdrawals') fetchWithdrawals();
-    }, [activeTab, withdrawalFilter, fetchWithdrawals]);
-  
-    const handleApproveWithdrawal = async (id) => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await axios.put(`${API_URL}/withdrawals/${id}/approve`,
-          { adminNote: 'Payment processed and sent' },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (res.data.success) {
-          addToast('success', 'Withdrawal approved!', 'Driver notified via app and email.');
-          fetchWithdrawals();
-        }
-      } catch (err) {
-        addToast('error', 'Failed to approve', err.response?.data?.message);
+    } catch (err) {
+      addToast('error', 'Failed to approve', err.response?.data?.message);
+    }
+  };
+
+  const handleRejectWithdrawal = async (id, note) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`${API_URL}/withdrawals/${id}/reject`,
+        { adminNote: note || 'Rejected by admin' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.data.success) {
+        addToast('warn', 'Withdrawal rejected.', 'Driver notified via app and email.');
+        setShowRejectModal(false);
+        setRejectNote('');
+        setSelectedWithdrawal(null);
+        fetchWithdrawals();
       }
-    };
-  
-    const handleRejectWithdrawal = async (id, note) => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await axios.put(`${API_URL}/withdrawals/${id}/reject`,
-          { adminNote: note || 'Rejected by admin' },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (res.data.success) {
-          addToast('warn', 'Withdrawal rejected.', 'Driver notified via app and email.');
-          setShowRejectModal(false);
-          setRejectNote('');
-          setSelectedWithdrawal(null);
-          fetchWithdrawals();
-        }
-      } catch (err) {
-        addToast('error', 'Failed to reject', err.response?.data?.message);
-      }
-    };
+    } catch (err) {
+      addToast('error', 'Failed to reject', err.response?.data?.message);
+    }
+  };
 
   // Fetch all dashboard data
   const fetchData = async () => {
@@ -1173,7 +1298,6 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-
         setStats(prev => ({ ...prev, totalOrders: data.length, pendingOrders: pending.length, completedOrders: completed.length, totalRevenue, totalWater }));
       }
 
-      
       if (driversRes.data.success) {
         const data = driversRes.data.data;
         setDrivers(data);
@@ -1200,8 +1324,6 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-
   };
 
   useEffect(() => { fetchData(); }, []);
-
-  
 
   // DRIVER ACTIONS
   const viewDriverDetail = async (driverId) => {
@@ -1341,32 +1463,31 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-
     } catch (err) { addToast('error', 'Failed to cancel order', err.response?.data?.message); }
   };
 
- const assignDriver = async (orderId, driverId) => {
-  try {
-    const token = localStorage.getItem('token');
-    const driver = drivers.find(d => (d._id || d.id) === driverId);
-    
-    // ✅ IMPORTANT: Send the driver's _id, NOT the name string
-    const res = await axios.put(`${API_URL}/water-requests/admin/${orderId}`,
-      { 
-        status: 'approved', 
-        driver: driverId,  // ✅ Send the ObjectId, not the name
-        tanker: driver?.tankerId, 
-        estimatedTime: 'Scheduled' 
-      },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    
-    if (res.data.success) {
-      setOrders(prev => prev.map(o => (o._id === orderId || o.id === orderId) ? 
-        { ...o, status: 'in-progress', assignedDriver: driverId, driver: driverId } : o));
-      addToast('success', `Driver ${driver?.firstName} assigned to ${orderId.slice(-6)}`);
-      setStats(prev => ({ ...prev, pendingOrders: prev.pendingOrders - 1 }));
+  const assignDriver = async (orderId, driverId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const driver = drivers.find(d => (d._id || d.id) === driverId);
+      
+      const res = await axios.put(`${API_URL}/water-requests/admin/${orderId}`,
+        { 
+          status: 'approved', 
+          driver: driverId,
+          tanker: driver?.tankerId, 
+          estimatedTime: 'Scheduled' 
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (res.data.success) {
+        setOrders(prev => prev.map(o => (o._id === orderId || o.id === orderId) ? 
+          { ...o, status: 'in-progress', assignedDriver: driverId, driver: driverId } : o));
+        addToast('success', `Driver ${driver?.firstName} assigned to ${orderId.slice(-6)}`);
+        setStats(prev => ({ ...prev, pendingOrders: prev.pendingOrders - 1 }));
+      }
+    } catch (err) { 
+      addToast('error', 'Failed to assign driver', err.response?.data?.message); 
     }
-  } catch (err) { 
-    addToast('error', 'Failed to assign driver', err.response?.data?.message); 
-  }
-};
+  };
 
   const deleteOrder = async (orderId) => {
     try {
@@ -1499,75 +1620,67 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://plasu-hydrotrack-
   const tileAttr = { streets:'&copy; OpenStreetMap', satellite:'&copy; Esri', terrain:'&copy; OpenTopoMap' };
 
   const driverLocations = drivers.map(d => {
-  const live = liveDriverLocations[d._id || d.id];
-  return {
-    id:           d._id || d.id,
-    name:         `${d.firstName} ${d.lastName}`,
-    position:     live ? [live.lat, live.lng] : [9.3265+(Math.random()-0.5)*0.02, 8.9947+(Math.random()-0.5)*0.02],
-    locationName: live?.locationName || d.currentLocation || 'Location unknown',
-    status:       d.online ? 'active' : 'offline',
-    tankerId:     d.tankerId,
-    isLive:       !!live,
-    lastUpdate:   live ? new Date(live.timestamp).toLocaleTimeString() : 'No data',
-  };
-});
+    const live = liveDriverLocations[d._id || d.id];
+    return {
+      id:           d._id || d.id,
+      name:         `${d.firstName} ${d.lastName}`,
+      position:     live ? [live.lat, live.lng] : [9.3265+(Math.random()-0.5)*0.02, 8.9947+(Math.random()-0.5)*0.02],
+      locationName: live?.locationName || d.currentLocation || 'Location unknown',
+      status:       d.online ? 'active' : 'offline',
+      tankerId:     d.tankerId,
+      isLive:       !!live,
+      lastUpdate:   live ? new Date(live.timestamp).toLocaleTimeString() : 'No data',
+    };
+  });
 
- const fetchIncidents = useCallback(async () => {
-  try {
-    setIncidentsLoading(true);
-
-    const token = localStorage.getItem('token');
-
-    const res = await axios.get(
-      `${API_URL}/drivers/admin/incidents`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
+  const fetchIncidents = useCallback(async () => {
+    try {
+      setIncidentsLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await axios.get(
+        `${API_URL}/drivers/admin/incidents`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         }
+      );
+      if (res.data.success) {
+        setIncidents(res.data.data || []);
       }
-    );
-
-    if (res.data.success) {
-      setIncidents(res.data.data || []);
+    } catch (err) {
+      addToast('error', 'Failed to load incidents', err.response?.data?.message);
+    } finally {
+      setIncidentsLoading(false);
     }
+  }, [addToast]);
 
-  } catch (err) {
-    addToast(
-      'error',
-      'Failed to load incidents',
-      err.response?.data?.message
-    );
-  } finally {
-    setIncidentsLoading(false);
-  }
-}, [addToast]);
-// ✅ THEN useEffect
-useEffect(() => {
-  if (activeTab === 'incidents') {
-    fetchIncidents();
-  }
-}, [activeTab, fetchIncidents]);
-
-const resolveIncident = async (driverId, incidentId) => {
-  try {
-    const token = localStorage.getItem('token');
-    const res = await axios.put(
-      `${API_URL}/admin/drivers/${driverId}/incidents/${incidentId}/resolve`,
-      { resolution: 'Resolved by admin' },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (res.data.success) {
-      setIncidents(prev => prev.map(inc =>
-        (inc._id || inc.id) === incidentId
-          ? { ...inc, status: 'resolved', resolvedAt: new Date() }
-          : inc
-      ));
-      addToast('success', 'Incident resolved successfully');
+  useEffect(() => {
+    if (activeTab === 'incidents') {
+      fetchIncidents();
     }
-  } catch (err) {
-    addToast('error', 'Failed to resolve incident', err.response?.data?.message);
-  }
-};
+  }, [activeTab, fetchIncidents]);
+
+  const resolveIncident = async (driverId, incidentId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.put(
+        `${API_URL}/admin/drivers/${driverId}/incidents/${incidentId}/resolve`,
+        { resolution: 'Resolved by admin' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.data.success) {
+        setIncidents(prev => prev.map(inc =>
+          (inc._id || inc.id) === incidentId
+            ? { ...inc, status: 'resolved', resolvedAt: new Date() }
+            : inc
+        ));
+        addToast('success', 'Incident resolved successfully');
+      }
+    } catch (err) {
+      addToast('error', 'Failed to resolve incident', err.response?.data?.message);
+    }
+  };
 
   if (loading) {
     return (
@@ -1603,6 +1716,14 @@ const resolveIncident = async (driverId, incidentId) => {
       <QuickAssignModal show={showAssign} order={assignOrder} drivers={drivers} onAssign={assignDriver}
         onClose={() => { setShowAssign(false); setAssignOrder(null); }} />
 
+      <StudentDetailModal
+        show={showStudentDetail}
+        student={selectedStudent}
+        onClose={() => { setShowStudentDetail(false); setSelectedStudent(null); }}
+        onVerify={verifyStudent}
+        onDelete={(id) => setConfirmDel({ show: true, id, type: 'student' })}
+      />
+
       <DriverDetailModal
         show={showDriverDetail}
         driver={selectedDriver}
@@ -1614,207 +1735,199 @@ const resolveIncident = async (driverId, incidentId) => {
       />
 
       {/* Header */}
-    
-  
-
       <header className="bg-white shadow-md sticky top-0 z-40">
-  <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
-    <div className="flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex justify-between items-center">
 
-      {/* Left: Logo */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        <div className="h-8 w-8 sm:h-10 sm:w-10 bg-green-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md">
-          <MdOutlineDashboard className="text-base sm:text-xl text-white" />
+            {/* Left: Logo */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="h-8 w-8 sm:h-10 sm:w-10 bg-green-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md">
+                <MdOutlineDashboard className="text-base sm:text-xl text-white" />
+              </div>
+              <h1 className="text-sm sm:text-lg md:text-xl font-bold text-gray-800">Admin Dashboard</h1>
+            </div>
+
+            {/* Right: Desktop Actions */}
+            <div className="hidden md:flex items-center gap-2">
+              <button onClick={() => setShowBroadcast(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold hover:bg-indigo-100 transition-colors">
+                <FaBullhorn size={11} /> Broadcast
+              </button>
+
+              {stats.pendingOrders > 0 && (
+                <div className="flex items-center gap-1.5 bg-yellow-100 px-3 py-1.5 rounded-full border border-yellow-200 cursor-pointer"
+                  onClick={() => setActiveTab('orders')}>
+                  <MdOutlinePendingActions className="text-yellow-600" />
+                  <span className="text-xs text-yellow-700 font-semibold">{stats.pendingOrders} pending</span>
+                </div>
+              )}
+
+              {pendingDriverCount > 0 && (
+                <div className="flex items-center gap-1.5 bg-orange-100 px-3 py-1.5 rounded-full border border-orange-200 cursor-pointer"
+                  onClick={() => { setActiveTab('drivers'); setFilterStatus('pending'); }}>
+                  <FaTruck className="text-orange-600 text-xs" />
+                  <span className="text-xs text-orange-700 font-semibold">{pendingDriverCount} driver{pendingDriverCount > 1 ? 's' : ''}</span>
+                </div>
+              )}
+
+              <button
+                onClick={() => { setNotifications(p => p.map(n => ({...n, read: true}))); addToast('info', 'All notifications marked as read'); }}
+                className="relative p-1">
+                <FaBell className="text-gray-600 text-lg" />
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                    {notifications.filter(n => !n.read).length > 9 ? '9+' : notifications.filter(n => !n.read).length}
+                  </span>
+                )}
+              </button>
+
+              <button onClick={() => setShowSettings(true)}
+                className="w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
+                <FaCog className="text-gray-500 text-sm" />
+              </button>
+
+              <button onClick={() => navigate('/login')}
+                className="flex items-center gap-2 text-sm font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg transition-colors">
+                <FaSignOutAlt size={12} />
+                Logout
+              </button>
+            </div>
+
+            {/* Mobile Actions */}
+            <div className="flex md:hidden items-center gap-1.5">
+              {stats.pendingOrders > 0 && (
+                <div className="flex items-center gap-1 bg-yellow-100 px-2 py-1 rounded-full border border-yellow-200 cursor-pointer"
+                  onClick={() => setActiveTab('orders')}>
+                  <MdOutlinePendingActions className="text-yellow-600 text-xs" />
+                  <span className="text-[10px] text-yellow-700 font-semibold">{stats.pendingOrders}</span>
+                </div>
+              )}
+
+              {pendingDriverCount > 0 && (
+                <div className="flex items-center gap-1 bg-orange-100 px-2 py-1 rounded-full border border-orange-200 cursor-pointer"
+                  onClick={() => { setActiveTab('drivers'); setFilterStatus('pending'); }}>
+                  <FaTruck className="text-orange-600 text-[10px]" />
+                  <span className="text-[10px] text-orange-700 font-semibold">{pendingDriverCount}</span>
+                </div>
+              )}
+
+              <button
+                onClick={() => { setNotifications(p => p.map(n => ({...n, read: true}))); addToast('info', 'All notifications marked as read'); }}
+                className="relative p-1">
+                <FaBell className="text-gray-600 text-base" />
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+                    {notifications.filter(n => !n.read).length > 9 ? '9+' : notifications.filter(n => !n.read).length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setShowMobileMenu(true)}
+                className="w-8 h-8 bg-gray-100 hover:bg-green-100 rounded-lg items-center justify-center transition-colors"
+                style={{ display: 'none' }}
+                ref={el => {
+                  if (el) {
+                    const mediaQuery = window.matchMedia('(max-width: 639px)');
+                    el.style.display = mediaQuery.matches ? 'flex' : 'none';
+                    mediaQuery.addEventListener('change', (e) => {
+                      el.style.display = e.matches ? 'flex' : 'none';
+                    });
+                  }
+                }}>
+                <FaBars className="text-gray-600 text-sm" />
+              </button>
+              <button
+                onClick={() => { localStorage.clear(); navigate('/login'); setShowMobileMenu(false); }}
+                className="items-center gap-1.5 ml-2 px-3 py-1.5 bg-red-50 text-red-500 hover:text-red-700 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-medium transition-colors"
+                style={{ display: 'none' }}
+                ref={el => {
+                  if (el) {
+                    const mediaQuery = window.matchMedia('(min-width: 640px)');
+                    el.style.display = mediaQuery.matches ? 'flex' : 'none';
+                    mediaQuery.addEventListener('change', (e) => {
+                      el.style.display = e.matches ? 'flex' : 'none';
+                    });
+                  }
+                }}>
+                <FaSignOutAlt size={11} />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
         </div>
-        <h1 className="text-sm sm:text-lg md:text-xl font-bold text-gray-800">Admin Dashboard</h1>
-      </div>
 
-      {/* Right: Desktop Actions */}
-      <div className="hidden md:flex items-center gap-2">
-
-        <button onClick={() => setShowBroadcast(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold hover:bg-indigo-100 transition-colors">
-          <FaBullhorn size={11} /> Broadcast
-        </button>
-
-        {stats.pendingOrders > 0 && (
-          <div className="flex items-center gap-1.5 bg-yellow-100 px-3 py-1.5 rounded-full border border-yellow-200 cursor-pointer"
-            onClick={() => setActiveTab('orders')}>
-            <MdOutlinePendingActions className="text-yellow-600" />
-            <span className="text-xs text-yellow-700 font-semibold">{stats.pendingOrders} pending</span>
-          </div>
+        {/* Mobile Menu Overlay */}
+        {showMobileMenu && (
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 md:hidden"
+            onClick={() => setShowMobileMenu(false)}
+          />
         )}
 
-        {pendingDriverCount > 0 && (
-          <div className="flex items-center gap-1.5 bg-orange-100 px-3 py-1.5 rounded-full border border-orange-200 cursor-pointer"
-            onClick={() => { setActiveTab('drivers'); setFilterStatus('pending'); }}>
-            <FaTruck className="text-orange-600 text-xs" />
-            <span className="text-xs text-orange-700 font-semibold">{pendingDriverCount} driver{pendingDriverCount > 1 ? 's' : ''}</span>
+        {/* Mobile Slide-out Menu */}
+        <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-2xl z-50 transform transition-all duration-300 ease-in-out md:hidden
+          ${showMobileMenu ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center">
+                <MdOutlineDashboard className="text-white text-sm" />
+              </div>
+              <h3 className="font-bold text-gray-800 text-sm">Admin Menu</h3>
+            </div>
+            <button onClick={() => setShowMobileMenu(false)}
+              className="w-8 h-8 bg-white hover:bg-red-50 rounded-lg flex items-center justify-center transition-colors shadow-sm">
+              <FaTimes className="text-gray-600 text-xs" />
+            </button>
           </div>
-        )}
+          <div className="p-4 space-y-2">
+            <button
+              onClick={() => { setShowBroadcast(true); setShowMobileMenu(false); }}
+              className="w-full flex items-center gap-3 p-3 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors">
+              <FaBullhorn size={14} />
+              <span className="text-sm font-medium">Broadcast Message</span>
+            </button>
 
-        <button
-          onClick={() => { setNotifications(p => p.map(n => ({...n, read: true}))); addToast('info', 'All notifications marked as read'); }}
-          className="relative p-1">
-          <FaBell className="text-gray-600 text-lg" />
-          {notifications.filter(n => !n.read).length > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
-              {notifications.filter(n => !n.read).length > 9 ? '9+' : notifications.filter(n => !n.read).length}
-            </span>
-          )}
-        </button>
+            {stats.pendingOrders > 0 && (
+              <button
+                onClick={() => { setActiveTab('orders'); setShowMobileMenu(false); }}
+                className="w-full flex items-center gap-3 p-3 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-xl hover:bg-yellow-100 transition-colors">
+                <MdOutlinePendingActions size={14} />
+                <span className="text-sm font-medium flex-1 text-left">Pending Orders</span>
+                <span className="bg-yellow-200 text-yellow-800 text-xs px-2 py-0.5 rounded-full font-bold">{stats.pendingOrders}</span>
+              </button>
+            )}
 
-        <button onClick={() => setShowSettings(true)}
-          className="w-9 h-9 bg-gray-100 hover:bg-green-100 rounded-full flex items-center justify-center transition-colors">
-          <FaCog className="text-gray-500 text-sm" />
-        </button>
+            {pendingDriverCount > 0 && (
+              <button
+                onClick={() => { setActiveTab('drivers'); setFilterStatus('pending'); setShowMobileMenu(false); }}
+                className="w-full flex items-center gap-3 p-3 bg-orange-50 text-orange-700 border border-orange-200 rounded-xl hover:bg-orange-100 transition-colors">
+                <FaTruck size={14} />
+                <span className="text-sm font-medium flex-1 text-left">Pending Drivers</span>
+                <span className="bg-orange-200 text-orange-800 text-xs px-2 py-0.5 rounded-full font-bold">{pendingDriverCount}</span>
+              </button>
+            )}
 
-        <button onClick={() => navigate('/login')}
-          className="flex items-center gap-2 text-sm font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg transition-colors">
-          <FaSignOutAlt size={12} />
-          Logout
-        </button>
+            <div className="border-t border-gray-100 my-2" />
 
-      </div>
+            <button
+              onClick={() => { setShowSettings(true); setShowMobileMenu(false); }}
+              className="w-full flex items-center gap-3 p-3 bg-gray-50 text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
+              <FaCog size={14} />
+              <span className="text-sm font-medium">Settings</span>
+            </button>
 
-      {/* Mobile Actions */}
-      <div className="flex md:hidden items-center gap-1.5">
-        {stats.pendingOrders > 0 && (
-          <div className="flex items-center gap-1 bg-yellow-100 px-2 py-1 rounded-full border border-yellow-200 cursor-pointer"
-            onClick={() => setActiveTab('orders')}>
-            <MdOutlinePendingActions className="text-yellow-600 text-xs" />
-            <span className="text-[10px] text-yellow-700 font-semibold">{stats.pendingOrders}</span>
+            <div className="border-t border-gray-100 my-2" />
+
+            <button
+              onClick={() => { localStorage.clear(); navigate('/login'); setShowMobileMenu(false); }}
+              className="w-full flex items-center gap-3 p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition-colors">
+              <FaSignOutAlt size={14} />
+              <span className="text-sm font-medium">Logout</span>
+            </button>
           </div>
-        )}
-
-        {pendingDriverCount > 0 && (
-          <div className="flex items-center gap-1 bg-orange-100 px-2 py-1 rounded-full border border-orange-200 cursor-pointer"
-            onClick={() => { setActiveTab('drivers'); setFilterStatus('pending'); }}>
-            <FaTruck className="text-orange-600 text-[10px]" />
-            <span className="text-[10px] text-orange-700 font-semibold">{pendingDriverCount}</span>
-          </div>
-        )}
-
-        <button
-          onClick={() => { setNotifications(p => p.map(n => ({...n, read: true}))); addToast('info', 'All notifications marked as read'); }}
-          className="relative p-1">
-          <FaBell className="text-gray-600 text-base" />
-          {notifications.filter(n => !n.read).length > 0 && (
-            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
-              {notifications.filter(n => !n.read).length > 9 ? '9+' : notifications.filter(n => !n.read).length}
-            </span>
-          )}
-        </button>
-
-        <button
-          onClick={() => setShowMobileMenu(true)}
-          className="w-8 h-8 bg-gray-100 hover:bg-green-100 rounded-lg items-center justify-center transition-colors"
-          style={{ display: 'none' }}
-          ref={el => {
-            if (el) {
-              const mediaQuery = window.matchMedia('(max-width: 639px)');
-              el.style.display = mediaQuery.matches ? 'flex' : 'none';
-              mediaQuery.addEventListener('change', (e) => {
-                el.style.display = e.matches ? 'flex' : 'none';
-              });
-            }
-          }}>
-          <FaBars className="text-gray-600 text-sm" />
-        </button>
-        <button
-          onClick={() => { localStorage.clear(); navigate('/login'); setShowMobileMenu(false); }}
-          className="items-center gap-1.5 ml-2 px-3 py-1.5 bg-red-50 text-red-500 hover:text-red-700 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-medium transition-colors"
-          style={{ display: 'none' }}
-          ref={el => {
-            if (el) {
-              const mediaQuery = window.matchMedia('(min-width: 640px)');
-              el.style.display = mediaQuery.matches ? 'flex' : 'none';
-              mediaQuery.addEventListener('change', (e) => {
-                el.style.display = e.matches ? 'flex' : 'none';
-              });
-            }
-          }}>
-          <FaSignOutAlt size={11} />
-          <span>Logout</span>
-        </button>
-      </div>
-
-    </div>
-  </div>
-
-  {/* Mobile Menu Overlay */}
-  {showMobileMenu && (
-    <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 md:hidden"
-      onClick={() => setShowMobileMenu(false)}
-    />
-  )}
-
-  {/* Mobile Slide-out Menu */}
-  <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-2xl z-50 transform transition-all duration-300 ease-in-out md:hidden
-    ${showMobileMenu ? 'translate-x-0' : '-translate-x-full'}`}>
-
-    <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
-      <div className="flex items-center gap-2">
-        <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center">
-          <MdOutlineDashboard className="text-white text-sm" />
         </div>
-        <h3 className="font-bold text-gray-800 text-sm">Admin Menu</h3>
-      </div>
-      <button onClick={() => setShowMobileMenu(false)}
-        className="w-8 h-8 bg-white hover:bg-red-50 rounded-lg flex items-center justify-center transition-colors shadow-sm">
-        <FaTimes className="text-gray-600 text-xs" />
-      </button>
-    </div>
-
-    <div className="p-4 space-y-2">
-      <button
-        onClick={() => { setShowBroadcast(true); setShowMobileMenu(false); }}
-        className="w-full flex items-center gap-3 p-3 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors">
-        <FaBullhorn size={14} />
-        <span className="text-sm font-medium">Broadcast Message</span>
-      </button>
-
-      {stats.pendingOrders > 0 && (
-        <button
-          onClick={() => { setActiveTab('orders'); setShowMobileMenu(false); }}
-          className="w-full flex items-center gap-3 p-3 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-xl hover:bg-yellow-100 transition-colors">
-          <MdOutlinePendingActions size={14} />
-          <span className="text-sm font-medium flex-1 text-left">Pending Orders</span>
-          <span className="bg-yellow-200 text-yellow-800 text-xs px-2 py-0.5 rounded-full font-bold">{stats.pendingOrders}</span>
-        </button>
-      )}
-
-      {pendingDriverCount > 0 && (
-        <button
-          onClick={() => { setActiveTab('drivers'); setFilterStatus('pending'); setShowMobileMenu(false); }}
-          className="w-full flex items-center gap-3 p-3 bg-orange-50 text-orange-700 border border-orange-200 rounded-xl hover:bg-orange-100 transition-colors">
-          <FaTruck size={14} />
-          <span className="text-sm font-medium flex-1 text-left">Pending Drivers</span>
-          <span className="bg-orange-200 text-orange-800 text-xs px-2 py-0.5 rounded-full font-bold">{pendingDriverCount}</span>
-        </button>
-      )}
-
-      <div className="border-t border-gray-100 my-2" />
-
-      <button
-        onClick={() => { setShowSettings(true); setShowMobileMenu(false); }}
-        className="w-full flex items-center gap-3 p-3 bg-gray-50 text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
-        <FaCog size={14} />
-        <span className="text-sm font-medium">Settings</span>
-      </button>
-
-      <div className="border-t border-gray-100 my-2" />
-
-      <button
-        onClick={() => { localStorage.clear(); navigate('/login'); setShowMobileMenu(false); }}
-        className="w-full flex items-center gap-3 p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition-colors">
-        <FaSignOutAlt size={14} />
-        <span className="text-sm font-medium">Logout</span>
-      </button>
-    </div>
-  </div>
-</header>
+      </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Welcome Banner */}
@@ -1947,7 +2060,7 @@ const resolveIncident = async (driverId, incidentId) => {
               </div>
 
               <div className="p-5">
-                {/* OVERVIEW TAB - Keep existing code */}
+                {/* OVERVIEW TAB */}
                 {activeTab === 'overview' && (
                   <div className="space-y-6">
                     <div className="grid lg:grid-cols-2 gap-5">
@@ -2180,7 +2293,7 @@ const resolveIncident = async (driverId, incidentId) => {
                     <div className="overflow-x-auto rounded-xl border border-gray-100">
                       <table className="w-full">
                         <thead className="bg-gray-50">
-                          <tr>{['Student','Matric','Dept','Level','Hall','Status','Plan','Balance','Actions'].map(h=>(
+                          <tr>{['Student','Matric','Dept','Level','Area','Status','Plan','Balance','Actions'].map(h=>(
                             <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                           ))}</tr>
                         </thead>
@@ -2201,7 +2314,7 @@ const resolveIncident = async (driverId, incidentId) => {
                               <td className="px-3 py-3 text-xs text-gray-600">{s.matricNumber}</td>
                               <td className="px-3 py-3 text-xs text-gray-600">{s.department}</td>
                               <td className="px-3 py-3 text-xs text-gray-600">{s.level}</td>
-                              <td className="px-3 py-3 text-xs text-gray-600">{s.hall}, Rm {s.roomNumber}</td>
+                              <td className="px-3 py-3 text-xs text-gray-600">{s.area}, Rm {s.roomNumber}</td>
                               <td className="px-3 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${sb(s.status)}`}>{s.status}</span></td>
                               <td className="px-3 py-3 text-xs text-gray-600">{s.plan}</td>
                               <td className="px-3 py-3 text-sm font-bold">
@@ -2209,6 +2322,12 @@ const resolveIncident = async (driverId, incidentId) => {
                               </td>
                               <td className="px-3 py-3">
                                 <div className="flex gap-1.5">
+                                  <button
+                                    onClick={() => viewStudentDetail(s.id || s._id)}
+                                    disabled={studentDetailLoading}
+                                    className="w-7 h-7 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center justify-center" title="View Details">
+                                    {studentDetailLoading ? <FaSpinner className="animate-spin" size={10} /> : <FaEye size={10} />}
+                                  </button>
                                   {!s.verified && (
                                     <button onClick={() => verifyStudent(s.id)} className="w-7 h-7 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 flex items-center justify-center" title="Verify">
                                       <FaUserCheck size={10} />
@@ -2238,7 +2357,7 @@ const resolveIncident = async (driverId, incidentId) => {
                   <div>
                     <div className="flex justify-between items-center mb-4">
                       <div className="flex items-center gap-3">
-                        <h3 className="font-bold text-sm  text-gray-800 ">Driver M</h3>
+                        <h3 className="font-bold text-sm  text-gray-800 ">Driver Management</h3>
                         {pendingDriverCount > 0 && (
                           <span className="px-2.5 py-1 bg-orange-100  text-orange-700 rounded-full text-xs font-bold">
                             {pendingDriverCount} pending approval
@@ -2415,22 +2534,22 @@ const resolveIncident = async (driverId, incidentId) => {
                         {showRoutes&&selDriverMap&&<Polyline positions={[selDriverMap.position,[9.3280,8.9910]]} color="#10B981" weight={3} dashArray="6,4"/>}
                       </MapContainer>
                     </div>
-                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {driverLocations.map(d => (
-                      <div key={d.id} onClick={() => { setSelDriverMap(d); setMapCenter(d.position); }}
-                        className={`p-3 rounded-xl border-2 cursor-pointer transition-all hover:shadow-md ${selDriverMap?.id === d.id ? 'border-green-500 bg-green-50' : 'border-gray-100 bg-white'}`}>
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`w-2 h-2 rounded-full ${d.status === 'active' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                            <p className="text-xs font-bold text-gray-800 truncate">{d.name}</p>
+                        <div key={d.id} onClick={() => { setSelDriverMap(d); setMapCenter(d.position); }}
+                          className={`p-3 rounded-xl border-2 cursor-pointer transition-all hover:shadow-md ${selDriverMap?.id === d.id ? 'border-green-500 bg-green-50' : 'border-gray-100 bg-white'}`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-2 h-2 rounded-full ${d.status === 'active' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                              <p className="text-xs font-bold text-gray-800 truncate">{d.name}</p>
+                            </div>
+                            <span className="text-xs text-gray-400">{d.tankerId}</span>
                           </div>
-                          <span className="text-xs text-gray-400">{d.tankerId}</span>
+                          <p className="text-xs text-gray-600 truncate">📍 {d.locationName}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{d.isLive ? '🔴 Live' : '⚫ ' + d.lastUpdate}</p>
                         </div>
-                        <p className="text-xs text-gray-600 truncate">📍 {d.locationName}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{d.isLive ? '🔴 Live' : '⚫ ' + d.lastUpdate}</p>
+                      ))}
                     </div>
-  ))}
-</div>
                   </div>
                 )}
 
@@ -2550,197 +2669,195 @@ const resolveIncident = async (driverId, incidentId) => {
                 )}
 
                 {activeTab === 'withdrawals' && (
-                    <div>
-                        {/* ── Reject Modal ── */}
-                        {showRejectModal && selectedWithdrawal && (
-                                      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                                        <div className="bg-white text-sm rounded-2xl max-w-sm w-full shadow-2xl p-6">
-                                          <h3 className="font-bold text-gray-800 text-lg mb-2">Reject Withdrawal</h3>
-                                          <p className="text-sm text-gray-500 mb-4">
-                                            Rejecting <strong>₦{selectedWithdrawal.amount?.toLocaleString()}</strong> for{' '}
-                                            <strong>{selectedWithdrawal.driver?.firstName} {selectedWithdrawal.driver?.lastName}</strong>
-                                          </p>
-                                          <textarea
-                                            value={rejectNote}
-                                            onChange={e => setRejectNote(e.target.value)}
-                                            placeholder="Reason for rejection (will be sent to driver)..."
-                                            rows={3}
-                                            className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-red-500 resize-none mb-4"
-                                          />
-                                          <div className="flex gap-3">
-                                            <button
-                                              onClick={() => { setShowRejectModal(false); setRejectNote(''); setSelectedWithdrawal(null); }}
-                                              className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600 text-sm font-medium hover:bg-gray-50">
-                                              Cancel
-                                            </button>
-                                            <button
-                                              onClick={() => handleRejectWithdrawal(selectedWithdrawal._id, rejectNote)}
-                                              className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700">
-                                              Reject & Notify
-                                            </button>
-                                          </div>
-                                        </div>
-                                      </div>
-                        )}
-
-                                    {/* ── Header ── */}
-                        <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
-                                      <h3 className="font-bold text-gray-800">Withdrawal Requests</h3>
-                                      <div className="flex gap-2 flex-wrap">
-                                        {[
-                                          { id: 'pending',  label: 'Pending',  color: 'bg-yellow-500' },
-                                          { id: 'approved', label: 'Approved', color: 'bg-green-600'  },
-                                          { id: 'rejected', label: 'Rejected', color: 'bg-red-500'    },
-                                          { id: 'all',      label: 'All',      color: 'bg-gray-700'   },
-                                        ].map(f => (
-                                          <button key={f.id} onClick={() => setWithdrawalFilter(f.id)}
-                                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all
-                                              ${withdrawalFilter === f.id ? `${f.color} text-white shadow-md` : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                                            {f.label}
-                                          </button>
-                                        ))}
-                                        <button onClick={fetchWithdrawals}
-                                          className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-200">
-                                          🔄 Refresh
-                                        </button>
-                                      </div>
+                  <div>
+                    {/* ── Reject Modal ── */}
+                    {showRejectModal && selectedWithdrawal && (
+                      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-white text-sm rounded-2xl max-w-sm w-full shadow-2xl p-6">
+                          <h3 className="font-bold text-gray-800 text-lg mb-2">Reject Withdrawal</h3>
+                          <p className="text-sm text-gray-500 mb-4">
+                            Rejecting <strong>₦{selectedWithdrawal.amount?.toLocaleString()}</strong> for{' '}
+                            <strong>{selectedWithdrawal.driver?.firstName} {selectedWithdrawal.driver?.lastName}</strong>
+                          </p>
+                          <textarea
+                            value={rejectNote}
+                            onChange={e => setRejectNote(e.target.value)}
+                            placeholder="Reason for rejection (will be sent to driver)..."
+                            rows={3}
+                            className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-red-500 resize-none mb-4"
+                          />
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => { setShowRejectModal(false); setRejectNote(''); setSelectedWithdrawal(null); }}
+                              className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600 text-sm font-medium hover:bg-gray-50">
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleRejectWithdrawal(selectedWithdrawal._id, rejectNote)}
+                              className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700">
+                              Reject & Notify
+                            </button>
+                          </div>
                         </div>
+                      </div>
+                    )}
 
-                                    {/* ── Content ── */}
-                        {withdrawalsLoading ? (
-                                      <div className="flex items-center justify-center py-16">
-                                        <FaSpinner className="animate-spin text-green-600 text-3xl" />
-                                      </div>
-                        ) : withdrawals.length === 0 ? (
-                        <div className="text-center py-16 text-gray-400">
-                                        <FaMoneyBillWave className="text-5xl mx-auto mb-3 opacity-20" />
-                                        <p className="text-sm">No {withdrawalFilter === 'all' ? '' : withdrawalFilter} withdrawal requests</p>
-                        </div>
-                        ) : (
-                        <div className="space-y-4">
-                                        {withdrawals.map(w => (
-                                          <div key={w._id}
-                                            className={`rounded-xl border-2 p-4 transition-all ${
-                                              w.status === 'pending'  ? 'border-yellow-200 bg-yellow-50/30' :
-                                              w.status === 'approved' ? 'border-green-100 bg-green-50/20' :
-                                              'border-red-100 bg-gray-50 opacity-80'
-                                            }`}>
-                                            <div className="flex flex-col md:flex-row justify-between items-start gap-3">
-
-                                              {/* Left info */}
-                                              <div className="flex items-start gap-3 flex-1">
-                                                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold text-sm shrink-0">
-                                                  {w.driver?.firstName?.charAt(0)}{w.driver?.lastName?.charAt(0)}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                  {/* Name + status */}
-                                                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                                                    <p className="font-bold text-gray-800 text-sm">
-                                                      {w.driver?.firstName} {w.driver?.lastName}
-                                                    </p>
-                                                    <span className="text-xs text-gray-400">{w.driver?.tankerId}</span>
-                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                                                      w.status === 'pending'  ? 'bg-yellow-100  text-yellow-700' :
-                                                      w.status === 'approved' ? 'bg-green-100 text-green-700' :
-                                                      'bg-red-100 text-red-700'
-                                                    }`}>
-                                                      {w.status === 'pending' ? '⏳ Pending' : w.status === 'approved' ? '✅ Approved' : '❌ Rejected'}
-                                                    </span>
-                                                  </div>
-
-                                                  {/* Amount */}
-                                                  <p className="text-2xl font-black text-gray-800 mb-2">
-                                                    ₦{w.amount?.toLocaleString()}
-                                                  </p>
-
-                                                  {/* Bank details */}
-                                                  <div className="flex flex-wrap gap-3 text-xs text-gray-600 mb-2">
-                                                    <span className="flex items-center gap-1">🏦 {w.bankName}</span>
-                                                    <span className="flex items-center gap-1">💳 {w.accountNumber}</span>
-                                                    {w.accountName && <span className="flex items-center gap-1">👤 {w.accountName}</span>}
-                                                    <span className="flex items-center gap-1">📞 {w.driver?.phone}</span>
-                                                  </div>
-
-                                                  {/* ✅ Driver balance breakdown */}
-                                                  {w.driverBalance && (
-                                                    <div className="flex flex-wrap bg-white rounded-xl p-3 border border-gray-100 mb-2">
-                                                    {/* Total Earned */}
-                                                    <div className="flex-1 min-w-[90px] text-center px-2 py-1">
-                                                      <p className="text-[12px] sm:text-sm text-gray-400">Total Earned</p>
-                                                      <p className="text-xs sm:text-sm font-black text-green-600">₦{w.driverBalance.totalEarnings.toLocaleString()}</p>
-                                                    </div>
-                                                    
-                                                    {/* Withdrawn */}
-                                                    <div className="flex-1 min-w-[90px] text-center px-2 py-1 border-l border-r border-gray-100">
-                                                      <p className="text-[12px] sm:text-sm text-gray-400">Withdrawn</p>
-                                                      <p className="text-xs sm:text-sm font-black text-orange-500">₦{w.driverBalance.totalWithdrawn.toLocaleString()}</p>
-                                                    </div>
-                                                    
-                                                    {/* Available */}
-                                                    <div className="flex-1 min-w-[90px] text-center px-2 py-1">
-                                                      <p className="text-[12px] sm:text-sm text-gray-400">Available</p>
-                                                      <p className={`text-xs sm:text-sm font-black ${w.driverBalance.available >= w.amount ? 'text-blue-600' : 'text-red-600'}`}>
-                                                        ₦{w.driverBalance.available.toLocaleString()}
-                                                      </p>
-                                                    </div>
-                                                  </div>
-                                                  )}
-
-                                                  {/* Insufficient balance warning */}
-                                                  {w.driverBalance && w.driverBalance.available < w.amount && w.status === 'pending' && (
-                                                    <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-700 mb-2 flex items-center gap-1">
-                                                      <FaExclamationTriangle size={10} />
-                                                      ⚠️ Insufficient balance! Driver earned ₦{w.driverBalance.totalEarnings.toLocaleString()} but requesting ₦{w.amount.toLocaleString()}
-                                                    </div>
-                                                  )}
-
-                                                  {/* Admin note */}
-                                                  {w.adminNote && (
-                                                    <p className={`text-xs px-2 py-1 rounded-lg inline-block mb-1 ${
-                                                      w.status === 'approved' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                                                    }`}>
-                                                      📝 {w.adminNote}
-                                                    </p>
-                                                  )}
-
-                                                  <p className="text-[10px] text-gray-400">
-                                                    Requested: {new Date(w.createdAt).toLocaleString()}
-                                                    {w.processedAt && ` · Processed: ${new Date(w.processedAt).toLocaleString()}`}
-                                                  </p>
-                                                </div>
-                                              </div>
-
-                                              {/* ✅ Action buttons — only for pending */}
-                                              {w.status === 'pending' && (
-                                                <div className="flex flex-col gap-2 shrink-0">
-                                                  <button
-                                                    onClick={() => handleApproveWithdrawal(w._id)}
-                                                    disabled={w.driverBalance && w.driverBalance.available < w.amount}
-                                                    className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-                                                    <FaCheck size={10} /> Approve & Pay
-                                                  </button>
-                                                  <button
-                                                    onClick={() => { setSelectedWithdrawal(w); setShowRejectModal(true); }}
-                                                    className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors flex items-center gap-1.5">
-                                                    <FaTimes size={10} /> Reject
-                                                  </button>
-                                                </div>
-                                              )}
-                                            </div>
-                                          </div>
-                                        ))}
-                        </div>
-                          )}
+                    {/* ── Header ── */}
+                    <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+                      <h3 className="font-bold text-gray-800">Withdrawal Requests</h3>
+                      <div className="flex gap-2 flex-wrap">
+                        {[
+                          { id: 'pending',  label: 'Pending',  color: 'bg-yellow-500' },
+                          { id: 'approved', label: 'Approved', color: 'bg-green-600'  },
+                          { id: 'rejected', label: 'Rejected', color: 'bg-red-500'    },
+                          { id: 'all',      label: 'All',      color: 'bg-gray-700'   },
+                        ].map(f => (
+                          <button key={f.id} onClick={() => setWithdrawalFilter(f.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all
+                              ${withdrawalFilter === f.id ? `${f.color} text-white shadow-md` : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                            {f.label}
+                          </button>
+                        ))}
+                        <button onClick={fetchWithdrawals}
+                          className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-200">
+                          🔄 Refresh
+                        </button>
+                      </div>
                     </div>
+
+                    {/* ── Content ── */}
+                    {withdrawalsLoading ? (
+                      <div className="flex items-center justify-center py-16">
+                        <FaSpinner className="animate-spin text-green-600 text-3xl" />
+                      </div>
+                    ) : withdrawals.length === 0 ? (
+                      <div className="text-center py-16 text-gray-400">
+                        <FaMoneyBillWave className="text-5xl mx-auto mb-3 opacity-20" />
+                        <p className="text-sm">No {withdrawalFilter === 'all' ? '' : withdrawalFilter} withdrawal requests</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {withdrawals.map(w => (
+                          <div key={w._id}
+                            className={`rounded-xl border-2 p-4 transition-all ${
+                              w.status === 'pending'  ? 'border-yellow-200 bg-yellow-50/30' :
+                              w.status === 'approved' ? 'border-green-100 bg-green-50/20' :
+                              'border-red-100 bg-gray-50 opacity-80'
+                            }`}>
+                            <div className="flex flex-col md:flex-row justify-between items-start gap-3">
+
+                              {/* Left info */}
+                              <div className="flex items-start gap-3 flex-1">
+                                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold text-sm shrink-0">
+                                  {w.driver?.firstName?.charAt(0)}{w.driver?.lastName?.charAt(0)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  {/* Name + status */}
+                                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                                    <p className="font-bold text-gray-800 text-sm">
+                                      {w.driver?.firstName} {w.driver?.lastName}
+                                    </p>
+                                    <span className="text-xs text-gray-400">{w.driver?.tankerId}</span>
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                      w.status === 'pending'  ? 'bg-yellow-100  text-yellow-700' :
+                                      w.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                      'bg-red-100 text-red-700'
+                                    }`}>
+                                      {w.status === 'pending' ? '⏳ Pending' : w.status === 'approved' ? '✅ Approved' : '❌ Rejected'}
+                                    </span>
+                                  </div>
+
+                                  {/* Amount */}
+                                  <p className="text-2xl font-black text-gray-800 mb-2">
+                                    ₦{w.amount?.toLocaleString()}
+                                  </p>
+
+                                  {/* Bank details */}
+                                  <div className="flex flex-wrap gap-3 text-xs text-gray-600 mb-2">
+                                    <span className="flex items-center gap-1">🏦 {w.bankName}</span>
+                                    <span className="flex items-center gap-1">💳 {w.accountNumber}</span>
+                                    {w.accountName && <span className="flex items-center gap-1">👤 {w.accountName}</span>}
+                                    <span className="flex items-center gap-1">📞 {w.driver?.phone}</span>
+                                  </div>
+
+                                  {/* Driver balance breakdown */}
+                                  {w.driverBalance && (
+                                    <div className="flex flex-wrap bg-white rounded-xl p-3 border border-gray-100 mb-2">
+                                      {/* Total Earned */}
+                                      <div className="flex-1 min-w-[90px] text-center px-2 py-1">
+                                        <p className="text-[12px] sm:text-sm text-gray-400">Total Earned</p>
+                                        <p className="text-xs sm:text-sm font-black text-green-600">₦{w.driverBalance.totalEarnings.toLocaleString()}</p>
+                                      </div>
+                                      
+                                      {/* Withdrawn */}
+                                      <div className="flex-1 min-w-[90px] text-center px-2 py-1 border-l border-r border-gray-100">
+                                        <p className="text-[12px] sm:text-sm text-gray-400">Withdrawn</p>
+                                        <p className="text-xs sm:text-sm font-black text-orange-500">₦{w.driverBalance.totalWithdrawn.toLocaleString()}</p>
+                                      </div>
+                                      
+                                      {/* Available */}
+                                      <div className="flex-1 min-w-[90px] text-center px-2 py-1">
+                                        <p className="text-[12px] sm:text-sm text-gray-400">Available</p>
+                                        <p className={`text-xs sm:text-sm font-black ${w.driverBalance.available >= w.amount ? 'text-blue-600' : 'text-red-600'}`}>
+                                          ₦{w.driverBalance.available.toLocaleString()}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Insufficient balance warning */}
+                                  {w.driverBalance && w.driverBalance.available < w.amount && w.status === 'pending' && (
+                                    <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-700 mb-2 flex items-center gap-1">
+                                      <FaExclamationTriangle size={10} />
+                                      ⚠️ Insufficient balance! Driver earned ₦{w.driverBalance.totalEarnings.toLocaleString()} but requesting ₦{w.amount.toLocaleString()}
+                                    </div>
+                                  )}
+
+                                  {/* Admin note */}
+                                  {w.adminNote && (
+                                    <p className={`text-xs px-2 py-1 rounded-lg inline-block mb-1 ${
+                                      w.status === 'approved' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                                    }`}>
+                                      📝 {w.adminNote}
+                                    </p>
+                                  )}
+
+                                  <p className="text-[10px] text-gray-400">
+                                    Requested: {new Date(w.createdAt).toLocaleString()}
+                                    {w.processedAt && ` · Processed: ${new Date(w.processedAt).toLocaleString()}`}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Action buttons — only for pending */}
+                              {w.status === 'pending' && (
+                                <div className="flex flex-col gap-2 shrink-0">
+                                  <button
+                                    onClick={() => handleApproveWithdrawal(w._id)}
+                                    disabled={w.driverBalance && w.driverBalance.available < w.amount}
+                                    className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                                    <FaCheck size={10} /> Approve & Pay
+                                  </button>
+                                  <button
+                                    onClick={() => { setSelectedWithdrawal(w); setShowRejectModal(true); }}
+                                    className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors flex items-center gap-1.5">
+                                    <FaTimes size={10} /> Reject
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
                   
-                {/* ANALYTICS TAB - Now properly inside the component */}
-
+                {/* ANALYTICS TAB */}
                 {activeTab === 'analytics' && (
                   <div className="space-y-6">
-
                     {/* Period Selector */}
-                    <div className="flex flex-wrap   items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <h3 className="font-bold text-gray-800 text-sm sm:text-lg">Analytics Dashboard</h3>
                       <div className="flex gap-2">
                         {[
@@ -2812,17 +2929,17 @@ const resolveIncident = async (driverId, incidentId) => {
                             },
                           ].map(s => (
                             <div key={s.label} className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-shadow">
-                            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-between sm:items-start gap-2 mb-2">
-                              <div className="flex-1">
-                                <p className="text-xs text-gray-500 font-medium">{s.label}</p>
-                                <p className="text-xl sm:text-2xl font-black text-gray-800 mt-1 break-all">{s.value}</p>
+                              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-between sm:items-start gap-2 mb-2">
+                                <div className="flex-1">
+                                  <p className="text-xs text-gray-500 font-medium">{s.label}</p>
+                                  <p className="text-xl sm:text-2xl font-black text-gray-800 mt-1 break-all">{s.value}</p>
+                                </div>
+                                <div className={`${s.color} p-3 rounded-xl self-start sm:self-auto`}>
+                                  <s.icon className="text-white text-lg" />
+                                </div>
                               </div>
-                              <div className={`${s.color} p-3 rounded-xl self-start sm:self-auto`}>
-                                <s.icon className="text-white text-lg" />
-                              </div>
+                              <p className={`text-xs ${s.trendColor} font-medium`}>{s.trend} {s.sub}</p>
                             </div>
-                            <p className={`text-xs ${s.trendColor} font-medium`}>{s.trend} {s.sub}</p>
-                          </div>
                           ))}
                         </div>
 
@@ -3251,93 +3368,93 @@ const resolveIncident = async (driverId, incidentId) => {
                 
                 {/* DELIVERY HISTORY TAB */}
                 {activeTab === 'history' && (
-                    <div>
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="font-bold text-sm text-gray-800">
-                          Delivery History ({orders.filter(o => o.status === 'completed').length})
-                        </h3>
-                        <button onClick={() => {
-                          const completedOrders = orders.filter(o => o.status === 'completed');
-                          const csv = completedOrders.map(o =>
-                            `${o._id},${o.user?.email},${o.quantityValue},${o.tanker},${drivers.find(d=>(d._id||d.id)===o.driver)?.firstName||''} ${drivers.find(d=>(d._id||d.id)===o.driver)?.lastName||''},${o.amount},${o.completedAt||o.updatedAt}`
-                          ).join('\n');
-                          const blob = new Blob([csv], {type:'text/csv'});
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a'); a.href=url; a.download='delivery-history.csv'; a.click();
-                          URL.revokeObjectURL(url);
-                          addToast('success','Delivery history exported');
-                        }} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-xl text-xs font-semibold hover:bg-green-100">
-                          <FaDownload size={11} /> Export CSV
-                        </button>
-                      </div>
-
-                      <div className="overflow-x-auto rounded-xl border border-gray-100">
-                        <table className="w-full">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              {['Order','Student','Phone','Hall/Room','Amount','Tanker','Driver','Completed','Payment','Amount Paid'].map(h => (
-                                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {orders
-                              .filter(o => o.status === 'completed')
-                              .sort((a, b) => new Date(b.updatedAt || b.deliveryDate) - new Date(a.updatedAt || a.deliveryDate))
-                              .map(o => {
-                                const driver = drivers.find(d => (d._id || d.id) === (o.driver?._id || o.driver));
-                                return (
-                                  <tr key={o._id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-4 py-3 text-sm font-bold text-gray-700">{o._id?.slice(-6).toUpperCase()}</td>
-
-                                    <td className="px-4 py-3">
-                                      <p className="text-sm font-semibold text-gray-800">{o.user?.email}</p>
-                                      <p className="text-xs text-gray-400 truncate max-w-[180px]">{o.location}</p>
-                                    </td>
-
-                                    <td className="px-4 py-3 text-sm text-gray-700">{o.user?.phone || '—'}</td>
-
-                                    <td className="px-4 py-3">
-                                    <p className="text-sm text-gray-700">{o.user?.area || '—'}</p>
-                                      <p className="text-xs text-gray-400">Rm {o.user?.roomNumber || '—'}</p>
-                                    </td>
-
-                                    <td className="px-4 py-3 text-sm font-semibold">{o.quantityValue}L</td>
-
-                                    <td className="px-4 py-3 text-sm text-gray-700">{o.tanker || '—'}</td>
-
-                                    <td className="px-4 py-3 text-sm text-gray-700">
-                                      {driver ? `${driver.firstName} ${driver.lastName}` : '—'}
-                                    </td>
-
-                                    <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                                      {o.completedAt ? new Date(o.completedAt).toLocaleDateString() : (o.updatedAt ? new Date(o.updatedAt).toLocaleDateString() : '—')}<br/>
-                                      <span className="text-xs text-gray-400">
-                                        {o.completedAt ? new Date(o.completedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}
-                                      </span>
-                                    </td>
-
-                                    <td className="px-4 py-3">
-                                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                        o.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                      }`}>
-                                        {o.paymentStatus || 'unpaid'}
-                                      </span>
-                                    </td>
-
-                                    <td className="px-4 py-3 text-sm font-bold text-green-600">₦{(o.amount || 0).toLocaleString()}</td>
-                                  </tr>
-                                );
-                              })}
-
-                            {orders.filter(o => o.status === 'completed').length === 0 && (
-                              <tr><td colSpan="9" className="px-4 py-8 text-center text-gray-500">No completed deliveries yet</td></tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-sm text-gray-800">
+                        Delivery History ({orders.filter(o => o.status === 'completed').length})
+                      </h3>
+                      <button onClick={() => {
+                        const completedOrders = orders.filter(o => o.status === 'completed');
+                        const csv = completedOrders.map(o =>
+                          `${o._id},${o.user?.email},${o.quantityValue},${o.tanker},${drivers.find(d=>(d._id||d.id)===o.driver)?.firstName||''} ${drivers.find(d=>(d._id||d.id)===o.driver)?.lastName||''},${o.amount},${o.completedAt||o.updatedAt}`
+                        ).join('\n');
+                        const blob = new Blob([csv], {type:'text/csv'});
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a'); a.href=url; a.download='delivery-history.csv'; a.click();
+                        URL.revokeObjectURL(url);
+                        addToast('success','Delivery history exported');
+                      }} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-xl text-xs font-semibold hover:bg-green-100">
+                        <FaDownload size={11} /> Export CSV
+                      </button>
                     </div>
-                  )}
+
+                    <div className="overflow-x-auto rounded-xl border border-gray-100">
+                      <table className="w-full">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {['Order','Student','Phone','Hall/Room','Amount','Tanker','Driver','Completed','Payment','Amount Paid'].map(h => (
+                              <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {orders
+                            .filter(o => o.status === 'completed')
+                            .sort((a, b) => new Date(b.updatedAt || b.deliveryDate) - new Date(a.updatedAt || a.deliveryDate))
+                            .map(o => {
+                              const driver = drivers.find(d => (d._id || d.id) === (o.driver?._id || o.driver));
+                              return (
+                                <tr key={o._id} className="hover:bg-gray-50 transition-colors">
+                                  <td className="px-4 py-3 text-sm font-bold text-gray-700">{o._id?.slice(-6).toUpperCase()}</td>
+
+                                  <td className="px-4 py-3">
+                                    <p className="text-sm font-semibold text-gray-800">{o.user?.email}</p>
+                                    <p className="text-xs text-gray-400 truncate max-w-[180px]">{o.location}</p>
+                                  </td>
+
+                                  <td className="px-4 py-3 text-sm text-gray-700">{o.user?.phone || '—'}</td>
+
+                                  <td className="px-4 py-3">
+                                    <p className="text-sm text-gray-700">{o.user?.area || '—'}</p>
+                                    <p className="text-xs text-gray-400">Rm {o.user?.roomNumber || '—'}</p>
+                                  </td>
+
+                                  <td className="px-4 py-3 text-sm font-semibold">{o.quantityValue}L</td>
+
+                                  <td className="px-4 py-3 text-sm text-gray-700">{o.tanker || '—'}</td>
+
+                                  <td className="px-4 py-3 text-sm text-gray-700">
+                                    {driver ? `${driver.firstName} ${driver.lastName}` : '—'}
+                                  </td>
+
+                                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                                    {o.completedAt ? new Date(o.completedAt).toLocaleDateString() : (o.updatedAt ? new Date(o.updatedAt).toLocaleDateString() : '—')}<br/>
+                                    <span className="text-xs text-gray-400">
+                                      {o.completedAt ? new Date(o.completedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}
+                                    </span>
+                                  </td>
+
+                                  <td className="px-4 py-3">
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                      o.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                    }`}>
+                                      {o.paymentStatus || 'unpaid'}
+                                    </span>
+                                  </td>
+
+                                  <td className="px-4 py-3 text-sm font-bold text-green-600">₦{(o.amount || 0).toLocaleString()}</td>
+                                </tr>
+                              );
+                            })}
+
+                          {orders.filter(o => o.status === 'completed').length === 0 && (
+                            <tr><td colSpan="9" className="px-4 py-8 text-center text-gray-500">No completed deliveries yet</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
                 
               </div>
             </div>
